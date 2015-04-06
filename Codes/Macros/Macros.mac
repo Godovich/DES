@@ -1,0 +1,243 @@
+;--------------------------------------------------------------------------------------
+; DEBUG_REG_32 32_bit_reg
+;    Prints 32 bit register 'reg' to the screen 
+;--------------------------------------------------------------------------------------
+macro DEBUG_REG_32 registers
+ irp reg,<registers>
+    local reg_name
+    local after_data
+
+    jmp  after_data
+
+reg_name db "&reg = ",0
+
+after_data:
+    PUSH_REGS <si, ds>
+
+    lea  si, [cs:reg_name]
+
+    ; For .EXE programs DS is pointing to the data segment, and not the code segment 
+    push cs 
+    pop  ds
+    
+    call PRINT_STR
+    
+    POP_REGS <ds, si>
+    
+    push eax
+    
+    mov eax, reg
+    shr eax, 16d
+    and eax, 0FFFFh
+    call PRINT_NUM_HEX_WITHOUT_H    
+    
+    pop  eax
+    push eax
+    
+    mov eax, reg
+    and eax, 0FFFFh
+    call PRINT_NUM_HEX
+    
+    pop eax
+    
+ endm
+endm 
+
+;--------------------------------------------------------------------------------------
+; print string
+;    Prints the string on the screen 
+;--------------------------------------------------------------------------------------
+macro print strings
+	PUSH_REGS <ax, dx, ds>
+	
+	irp string, <strings>
+		LOCAL @@start,@@msg
+		jmp  @@start     ; string is being stored in the code segment so skip over it
+		
+		@@msg db string,'$'
+		
+		@@start:    
+		
+			; Set cs to ds
+			mov  ax,cs 
+			mov  ds,ax
+			
+			mov  ah, 09h
+			lea  dx, [@@msg] 
+			int  21h
+	endm
+	
+	POP_REGS <ds, dx, ax>
+endm
+
+macro PRINT_REG_8 nib
+    PUSH_REGS <ax, dx>
+	mov dl, nib
+    cmp  dl,9h
+    jbe  @@DECIMAL
+
+    add  dl,'A'-'0'-10
+
+@@DECIMAL:
+    add  dl,'0'
+
+    mov  ah,02h
+    int  21h
+	
+    POP_REGS <dx, ax>
+endm
+
+;--------------------------------------------------------------------------------------
+; DEBUG_REG_8 8_bit_reg
+;    Prints 8 bit register 'reg' to the screen 
+;--------------------------------------------------------------------------------------
+macro DEBUG_REG_8 registers
+ irp reg,<registers>
+    local reg_name
+    local after_data
+
+    jmp  after_data
+
+reg_name db "&reg = ",0
+
+after_data:
+    PUSH_REGS <si, ds>
+
+    lea  si, [cs:reg_name]
+
+    ; For .EXE programs DS is pointing to the data segment, and not the code segment 
+    push cs 
+    pop  ds
+    
+    call PRINT_STR
+    
+    POP_REGS <ds, si>
+	push ax
+	
+	xor ax, ax
+	mov al, reg
+    call PRINT_NUM_DEBUG
+	
+	pop ax
+    
+ endm
+endm
+
+;--------------------------------------------------------------------------------------
+; PRINT_VAR_DOUBLE var_name
+;    Prints variable in various ways
+;--------------------------------------------------------------------------------------
+
+macro PRINT_VAR_DOUBLE char
+    PUSH_REGS <ax, dx>
+	
+	push eax
+	
+    mov eax, char
+	call printdw
+	
+	pop eax
+	
+	putc 'h'
+	
+    POP_REGS <dx, ax>  
+endm   
+
+
+;#define PERM_OP(a,b,t,n,m) ((t)=((((a)>>(n))^(b))&(m)),\
+;							(b)^=(t),\
+;							(a)^=((t)<<(n)))
+macro PERM_OP One, Two, By, AndWith
+	local @@tmp, @@start
+	
+	push edx
+    push ds 
+	  
+	jmp @@start
+	@@tmp dd 0
+	
+	@@start:
+		mov edx, [One]
+		shr edx, By
+		
+		; Create the mask (2 ^ (intSize - x) - 1)
+		mov [@@tmp], 2
+		shl [@@tmp], 32-By
+		dec [@@tmp]
+		
+		
+		and edx, [@@tmp]	
+		xor edx, [Two]
+		mov [@@tmp], AndWith
+		and edx, [@@tmp]
+		xor [Two], edx
+		shl edx, By
+		xor [One], edx
+			
+	pop ds
+    pop edx 
+endm
+
+;----------------------------------------------------------
+; IP - Initial Permutation
+;----------------------------------------------------------
+; #define IP(l,r,t) \
+;	PERM_OP(r,l,t, 4,0x0f0f0f0f); \
+;	PERM_OP(l,r,t,16,0x0000ffff); \
+;	PERM_OP(r,l,t, 2,0x33333333); \
+;	PERM_OP(l,r,t, 8,0x00ff00ff); \
+;	PERM_OP(r,l,t, 1,0x55555555);
+
+macro IP l, r 
+	PERM_OP l, r, 4 , 0f0f0f0fh
+	PERM_OP l, r, 16, 0000ffffh
+	PERM_OP r, l, 2 , 33333333h
+	PERM_OP r, l, 8 , 00ff00ffh
+	PERM_OP l, r, 1 , 55555555h
+endm
+
+;----------------------------------------------------------
+; FP - Final Permutation
+;----------------------------------------------------------
+; #define FP(l,r,t) \
+;	PERM_OP(l,r,t, 1,0x55555555); \
+;	PERM_OP(r,l,t, 8,0x00ff00ff); \
+;	PERM_OP(l,r,t, 2,0x33333333); \
+;	PERM_OP(r,l,t,16,0x0000ffff); \
+;	PERM_OP(l,r,t, 4,0x0f0f0f0f);
+
+macro FP l, r 
+	PERM_OP l,  r, 1 , 55555555h
+	PERM_OP r , l, 8 , 00ff00ffh
+	PERM_OP r , l, 2 , 33333333h
+	PERM_OP l,  r, 16, 0000ffffh
+	PERM_OP l,  r, 4 , 0f0f0f0fh
+endm
+
+; Swap XOR Algorithm
+macro Swap src, dst
+	push edx
+	mov edx, [dst]
+	xor [src], edx
+	xor edx, [src]
+	xor [src], edx
+	mov [dst], edx
+	pop edx
+endm
+
+; Zero filled shift right
+macro ZFShr dst, by
+
+	push edx
+  
+	; Create the mask (2 ^ (intSize - x) - 1)
+	mov edx, 2
+	shl edx, 32-By
+	dec edx
+	
+	shr dst, By
+	and dst, edx
+	
+    pop edx 
+
+endm
