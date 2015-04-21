@@ -74,14 +74,6 @@ endm
 ;	PERM_OP(r,l,t,16,0x0000ffff); \
 ;	PERM_OP(l,r,t, 4,0x0f0f0f0f);
 
-macro FP l, r 
-	Perm_Perform l,  r, 1 , 55555555h
-	Perm_Perform r , l, 8 , 00ff00ffh
-	Perm_Perform r , l, 2 , 33333333h
-	Perm_Perform l,  r, 16, 0000ffffh
-	Perm_Perform l,  r, 4 , 0f0f0f0fh
-endm
-
 ; Swap XOR Algorithm
 macro Swap src, dst
 	push edx
@@ -94,6 +86,7 @@ macro Swap src, dst
 endm
 
 ; Zero filled shift right
+; >>> Operator in js
 macro ZFShr dst, by
 
 	push edx

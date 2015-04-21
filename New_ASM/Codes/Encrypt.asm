@@ -430,10 +430,10 @@ proc hexToString
 	
 		mov ah, [inputFileContent + bx] ; Contains current char	
 
-		mov al, ah
-		call isHexCharacter
-		cmp si, 0
-		JE @@ERROR_NOT_HEX
+		; Check if al is a hex character
+		String_IsHex ah
+		cmp si, 1
+		JNE @@ERROR_NOT_HEX
 		
 		cmp ah, 'A'
 		JGE CharValue
@@ -448,9 +448,10 @@ proc hexToString
 		inc bx
 		mov al, [inputFileContent + bx] ; Contains current char	
 		
-		call isHexCharacter
-		cmp si, 0
-		JE @@ERROR_NOT_HEX
+		; Check if al is a hex character
+		String_IsHex al
+		cmp si, 1
+		JNE @@ERROR_NOT_HEX
 
 		cmp al, 'A'
 		JGE CharValue1
@@ -479,85 +480,17 @@ proc hexToString
 	mov [inputFileSize], cx
 	shr [inputFileSize], 1
 
+	mov al, 2
 	ret
 
 
 
 	@@ERROR_NOT_HEX:
-		Console_Exit ' Sorry, the string must contain only hex characters!'
-	ret
-endp
-
-;  0 = FALSE, 1 = TRUE
-proc isAlDigit
-	cmp al, '0'
-	JB @@RETURN_NO
-
-	cmp al, '9'
-	JG @@RETURN_NO
-
-	mov si, 1
-	ret
-
-	@@RETURN_NO:
-	mov si, 0
-	@@EXIT:
-	ret 
-endp
-
-proc isALaTOf
-	cmp al, 'a'
-	JB @@RETURN_NO
-
-	cmp al, 'f'
-	JG @@RETURN_NO
-
-	mov si, 1
-	ret 
-
-	@@RETURN_NO:
-	mov si, 0
-	@@EXIT:
-	ret 
-endp
-
-proc isCaptialATOF
-	cmp al, 'A'
-	JB @@RETURN_ZERO
-
-	cmp al, 'F'
-	JG @@RETURN_ZERO
-
-	mov si, 1
-	ret 
-
-	@@RETURN_ZERO:
-	mov si, 0
-	@@EXIT:
-	ret 
-endp
-
-proc isHexCharacter
+		Console_ClearScreen
+		Console_PrintHeader
 	
-	mov si, 0
-
-	call isAlDigit
-	cmp si, 1
-	JE @@RETURN_TRUE
-
-	call isCaptialATOF
-	cmp si, 1
-	JE @@RETURN_TRUE
-
-	call isALaTOf
-	cmp si, 1
-	JE @@RETURN_TRUE
-	
-	; Return false
-	mov si, 0
-	ret
-
-	@@RETURN_TRUE:
-	mov si, 1
+		Console_WriteLine " Sorry, the program can only accept hex code for decryption."
+		Console_WriteLine
+		mov al, 1
 	ret
 endp

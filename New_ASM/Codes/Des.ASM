@@ -9,15 +9,15 @@
 .386 			; Generate 32-bit code instead of 16.
 IDEAL			; Syntax: IDEAL
 MODEL small		; One DS and one CS Please.
-STACK 100h		; We want a bigger stack!
-radix 10		; Our default radix will be 10 (decimal)
+STACK 100h		; Define the stack size
+radix 10		; Our default radix will be decimal
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ; *********************           Data Segment           ********************
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 DATASEG
 
-	; Boolean: isEncryptionSelected
+	; Boolean: Is encryption selected?
 	encryption 		 	db 0
 	
 	; The key should contain 64 bits, or 8 characters.
@@ -54,7 +54,7 @@ DATASEG
 	spfunction7 dd 200000h,4200002h,4000802h,0h,800h,4000802h,200802h,4200800h,4200802h,200000h,0h,4000002h,2h,4000000h,4200002h,802h,4000800h,200802h,200002h,4000800h,4000002h,4200000h,4200800h,200002h,4200000h,800h,802h,4200802h,200800h,2h,4000000h,200800h,4000000h,200800h,200000h,4000802h,4000802h,4200002h,4200002h,2h,200002h,4000000h,4000800h,200000h,4200800h,802h,200802h,4200800h,802h,4000002h,4200802h,4200000h,200800h,0h,2h,4200802h,0h,200802h,4200000h,800h,4000002h,4000800h,800h,200002h
 	spfunction8 dd 10001040h,1000h,40000h,10041040h,10000000h,10001040h,40h,10000000h,40040h,10040000h,10041040h,41000h,10041000h,41040h,1000h,40h,10040000h,10000040h,10001000h,1040h,41000h,40040h,10040040h,10041000h,1040h,0h,0h,10040040h,10000040h,10001000h,41040h,40000h,41040h,40000h,10041000h,1000h,40h,10040040h,1000h,41040h,10001000h,40h,10000040h,10040000h,10040040h,10000000h,40000h,10001040h,0h,10041040h,40040h,10000040h,10040000h,10001000h,10001040h,0h,10041040h,41000h,41000h,1040h,1040h,40040h,10000000h,10041000h
 
-	; "Temp" ( LOL ) variables, multi-use
+	; "Temp" variables, multi-use
 	RightTemp 			dd 0h
 	LeftTemp  			dd 0h
 	KeyNum 				dw 0
@@ -74,8 +74,9 @@ DATASEG
 	output db 4096 dup (20h)
 	outputc dw 0
 
-	; Maximum Input file string size: 2048 
-	inputFileMaxSize	equ 2048
+	; Because we are creating a 16-bit code, our code segment have a mximum of 64k, and we pretty much used 37kb ( approximately ) already, so we have only 28kb free (2^16 - 37000 = 28536 bytes or 28.536 kb)
+	; Maximum Input file string size: 29kb
+	inputFileMaxSize	equ 28000
 	inputFileHandle 	dw ?
 	inputFileContent 	db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
 	inputFileContentDec db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
@@ -86,12 +87,14 @@ DATASEG
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 CODESEG
 	
+	; Include all of my macros and procedures from the library folder
 	include '..\..\Codes\Library\Base.asm'
 	include '..\..\Codes\Library\Console.asm'
 	include '..\..\Codes\Library\String.asm'
 	include '..\..\Codes\Library\Debug.asm'
 	include '..\..\Codes\Library\File.asm'
 	
+	; Include the program files ( the main code )
 	include '..\..\Codes\Perm.asm'
 	include '..\..\Codes\Key.asm'
 	include '..\..\Codes\Encrypt.asm'
@@ -114,16 +117,19 @@ start:
 	jne @@OPTIONS 					  ; If <> than 2, the file exists, that means, jump to the next step.
 	
 	File_Create '..\..\Input.txt'	  ; The file doesn't exist, let's create a new one.
-	Console_WriteLine ' I have created input.txt for you!'
-	
+	Console_WriteLine ' Attention: Input.txt have just been created!'
+	Console_WriteLine
+
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Encryption/Decryption selection
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	
 	@@OPTIONS:
-	
+	Console_WriteLine ' Please enter your string into the "input.txt" file and then continue'
+	Console_WriteLine
 	Console_WriteLine ' Please select your option: (1) Encryption'
 	Console_WriteLine '                            (2) Decryption'
+	Console_WriteLine '                            (3) Exit      '
 	Console_NewLine
 	Console_Write ' What is your selection? : '
 	
@@ -131,6 +137,9 @@ start:
 	;	Receive Encryption/Decryption selection input
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	String_Scan encryption, 1	; Get one character input from user
+
+	cmp [encryption], '3'
+	je exit
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Filter the selection input, only allow 1 or 2
@@ -171,7 +180,7 @@ start:
 	jb @@READ_INPUT									; If smaller, skip the error message.
 	
 	; This file size is bigger than the maximum.
-	Console_Exit ' Sorry, your file is too big! Maximum: 2048 bytes'
+	Console_Exit ' Sorry, your file is too big! Maximum: 29kb'
 	 
 	; Great! continue...
 	@@READ_INPUT:
@@ -186,13 +195,61 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Format the received hex (if at all)
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	; Do this only for decryption
+	
+	; Skip this part if the user selected encryption
 	cmp [encryption], '2'
 	jne @@SKIP_HEX_FORMATTING
 
+	; Clear the counter variable
+	xor cx, cx
+
+	; Load the string to the memory
 	lea si, [inputFileContent]
-	mov cx, [inputFileSize]
-	call hexToString
+	
+	@@CHAR_LOOP:
+		lodsb 	  			 ; Load byte from the string in SI
+		mov ah, al           ; Move the byte to ah
+		lodsb				 ; Load byte from the string in SI
+		
+		; Check if the characters are both hex characters
+
+		; Check if the first character is an actual hex character
+		String_IsHex al
+		cmp dx, 1
+		JNE @@ERROR_NOT_HEX
+
+		; Check if the second character is an actual hex character
+		String_IsHex ah
+		cmp dx, 1
+		JNE @@ERROR_NOT_HEX
+
+		; Get the acsii value of both characters
+		String_CharToASCII al
+		String_CharToASCII ah
+
+		; Set the first character as the higher-nibble
+		shl ah, 4
+		add ah, al
+
+		; Set the next character in the string
+		mov bx, cx
+		shr bx, 1 ; Divide by two
+		mov [inputFileContentDec + bx], ah
+
+		; We used 2 bytes, so let's add them to our count
+		add cx, 2
+
+		; if( BytesChecked < BytesTotal )
+		cmp cx, [inputFileSize]
+		jne  @@CHAR_LOOP	 ; And now to the next character
+
+	jmp @@SKIP_HEX_FORMATTING
+
+	@@ERROR_NOT_HEX:
+		Console_ClearScreen
+		Console_PrintHeader	
+		Console_WriteLine " Sorry, the program can only accept hex code for decryption."
+		Console_WriteLine
 
 	@@SKIP_HEX_FORMATTING:
 	
@@ -214,10 +271,10 @@ start:
 	cmp cx, 8
 	je @@EXPAND_KEYS
 	
-	; Well, let's give the user one more chance.
+	; The key isn't 64 bytes!
 	Console_ClearScreen
 	Console_PrintHeader
-	Console_WriteLine ' The key must consist of 8 characters'
+	Console_WriteLine ' Error: The key should be 8 characters long!'
 	Console_Write ' Please enter your (secret) key: '
 	jmp @@RECEIVE_KEY
 
@@ -226,22 +283,11 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	
 	@@EXPAND_KEYS:
+
+		; Expand the key to additional 16 keys ( Each key has left and right, so actually I stored it as 32 different keys)
+		; You can read more about the key schedule in the official wikipedia page.
+		; http://en.wikipedia.org/wiki/Data_Encryption_Standard#Key_schedule
 		Key_Expand
-			
-		; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		;	Print keys
-		; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	
-		;mov cx, 0d
-		;REPT 32
-		; 	mov bx, 4d
-		; 	imul bx, cx
-		;  	mov edx, [Keys + bx]
-		;  	Console_NewLine
-		;  	Console_Write 'Key: '
-		;  	Debug_Register_32 edx
-		;  	inc cx
-		;ENDM
 		
 		; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 		;	Results!
@@ -250,11 +296,9 @@ start:
 		; Print the Header
 		Console_ClearScreen
 		Console_PrintHeader
-
-		; ..
 		Console_WriteLine '  Results: '
 
-		; Print the key
+		; Print the key, nothing special here
 		Console_Write '  	Key : "'
 		mov al, [key + 8]
 		mov [key + 8], '$'
@@ -273,6 +317,7 @@ start:
 		@@encryption:
 
 			Console_Write '        Hex : '
+
 			; Run the encryption
 			Encrypt_Run 1
 	
@@ -281,6 +326,7 @@ start:
 		@@decryption:
 
 			Console_Write '       Text : '
+
 			; Run the decryption
 			Encrypt_Run 0		
 			
@@ -290,7 +336,10 @@ start:
 		
 exit:
 	Console_NewLine
+
 	Console_WriteLine ' ------------------------------------------------------------------------------' 
+	Console_WriteLine ' Thank you for choosing Eyal, have a great day ;)'
+	
 	mov ax, 4c00h
 	int 21h
 END start

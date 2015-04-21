@@ -104,3 +104,67 @@ macro String_Scan string, maxStringLength
 		; Restore the original value of ax, bx, cx & si
 		Base_PopRegisters <si, cx, bx, ax>
 endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : IsHex
+;	Usage    : String_IsHex 'a'
+;	Desc     : Get's a character and tests to see if its a hex character ( A-F\a-f\0-9 ).
+;              The result will be stored in dx.
+;	ASCII    : http://www.asciitable.com/index/asciifull.gif
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_IsHex char
+	local @@RETURN_NO, @@RETURN_YES, @@EXIT
+
+	; 0-9
+	cmp char, '0'
+	JB @@RETURN_NO
+	cmp char, ':'
+	JB @@RETURN_YES
+
+	; a-f
+	cmp char, 'f'
+	JG @@RETURN_NO
+	cmp char, 96
+	JG @@RETURN_YES
+
+	; A-F
+	cmp char, 'F'
+	JG @@RETURN_NO
+	cmp char, '@'
+	JG @@RETURN_YES
+
+	jmp @@RETURN_NO
+
+	@@RETURN_YES:
+		mov dx, 1
+		jmp @@EXIT
+
+
+	@@RETURN_NO:
+		mov dx, 0
+
+	@@EXIT:
+endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : CharToASCII
+;	Usage    : String_CharToASCII 'a'
+;	Desc     : Get's the ascii value of a character
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_CharToASCII char
+	local @@CHAR_VALUE, @@RETURN_YES, @@EXIT
+	
+	cmp char, 'A'
+	JGE @@CHAR_VALUE
+	sub char, '0'
+	JMP @@EXIT
+
+	@@CHAR_VALUE:
+		and char, '_' ; To upper case 
+		sub char, 'A'
+		add char, 10
+
+	@@EXIT:
+endm
