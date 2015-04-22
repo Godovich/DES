@@ -19,7 +19,7 @@ macro Encrypt_Run MODE
 	ELSE 
 
 		; Fix the block problem, we need an input of atleast 8 characters.
-		sub [inputFileSize], 8
+		sub [inputFileSize], 16
 		lea si, [inputFileContentDec]
 	ENDIF
 
@@ -487,8 +487,7 @@ proc hexToString
 
 	@@ERROR_NOT_HEX:
 		Console_ClearScreen
-		Console_PrintHeader
-	
+		Console_PrintHeader	
 		Console_WriteLine " Sorry, the program can only accept hex code for decryption."
 		Console_WriteLine
 		mov al, 1

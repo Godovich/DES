@@ -213,8 +213,7 @@ endm
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 macro Console_ClearScreen
-	mov ah, 0
-	mov al, 3
+	mov ax, 3
 	int 10h
 endm
 

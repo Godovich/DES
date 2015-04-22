@@ -124,7 +124,7 @@ endm
 ;	Desc     : Creates a file
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-macro File_Create name
+macro File_Create name, handle
 	local @@file_name, @@start, @@error, @@exit
 	
 	Base_PushRegisters <cx, ax, dx, ds>
@@ -154,9 +154,14 @@ macro File_Create name
 		
 		; Open the file!
 		int 21h
-		
+
 		; Carry flag is set on error
 		jc @@error
+
+
+
+		mov [cs:handle], ax
+		File_Close cs:handle
 		
 		; Finished!
 		jmp @@exit

@@ -88,16 +88,16 @@ DATASEG
 CODESEG
 	
 	; Include all of my macros and procedures from the library folder
-	include '..\..\Codes\Library\Base.asm'
-	include '..\..\Codes\Library\Console.asm'
-	include '..\..\Codes\Library\String.asm'
-	include '..\..\Codes\Library\Debug.asm'
-	include '..\..\Codes\Library\File.asm'
+	include '..\Codes\Library\Base.asm'
+	include '..\Codes\Library\Console.asm'
+	include '..\Codes\Library\String.asm'
+	include '..\Codes\Library\Debug.asm'
+	include '..\Codes\Library\File.asm'
 	
 	; Include the program files ( the main code )
-	include '..\..\Codes\Perm.asm'
-	include '..\..\Codes\Key.asm'
-	include '..\..\Codes\Encrypt.asm'
+	include '..\Codes\Perm.asm'
+	include '..\Codes\Key.asm'
+	include '..\Codes\Encrypt.asm'
 	
 start:
 	mov ax, @data
@@ -112,11 +112,11 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Check if input.txt exists!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	File_exists '..\..\Input.txt', cx ; File_Exists returns 2 if the file doesn't exist
+	File_exists '..\Input.txt', cx 	  ; File_Exists returns 2 if the file doesn't exist
 	cmp cx, 2 						  ; Check if the return value equals to 2
 	jne @@OPTIONS 					  ; If <> than 2, the file exists, that means, jump to the next step.
 	
-	File_Create '..\..\Input.txt'	  ; The file doesn't exist, let's create a new one.
+	File_Create '..\Input.txt', inputFileHandle	  ; The file doesn't exist, let's create a new one.
 	Console_WriteLine ' Attention: Input.txt have just been created!'
 	Console_WriteLine
 
@@ -168,20 +168,38 @@ start:
 	;	Read Input.txt size!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-	File_Open '..\..\Input.txt', 2, inputFileHandle
+	File_Open '..\Input.txt', 2, inputFileHandle
 	File_Size inputFileHandle, bx					; Get size of the file and put it in bx
 
 	; Move the size to the inputFileSize variable
 	mov [inputFileSize], bx
+
+	; Check to see if the file size is bigger than zero
+	cmp [inputFileSize], 0
+	JNE @@CHECK_MAXIMUM
+
+	Console_ClearScreen
+	Console_PrintHeader
+	Console_WriteLine ' Attention: Please enter your string to input.txt!'
+	Console_WriteLine
+	File_Close inputFileHandle						; Now we can close the file.
+	jmp @@OPTIONS
+
+	@@CHECK_MAXIMUM:
 	
 	; Ok, so now we have the file size stored in bx, we need to check that the
 	; file size is smaller than the maximum size we selected.
 	cmp bx, inputFileMaxSize						; Compare with the maximum defined.
-	jb @@READ_INPUT									; If smaller, skip the error message.
+	jb @@READ_INPUT								    ; If smaller, skip the error message.
 	
 	; This file size is bigger than the maximum.
-	Console_Exit ' Sorry, your file is too big! Maximum: 29kb'
-	 
+	Console_ClearScreen
+	Console_PrintHeader
+	Console_WriteLine ' Attention: Input.txt is too big!'
+	Console_WriteLine '            Maximum size: 29kb'
+	Console_WriteLine
+	File_Close inputFileHandle						; Now we can close the file.
+
 	; Great! continue...
 	@@READ_INPUT:
 	
@@ -199,6 +217,11 @@ start:
 	; Skip this part if the user selected encryption
 	cmp [encryption], '2'
 	jne @@SKIP_HEX_FORMATTING
+
+	mov ax, [inputFileSize]
+	or ax, 1
+	cmp ax, 1
+	je @@ERROR_NOT_HEX
 
 	; Clear the counter variable
 	xor cx, cx
@@ -248,8 +271,9 @@ start:
 	@@ERROR_NOT_HEX:
 		Console_ClearScreen
 		Console_PrintHeader	
-		Console_WriteLine " Sorry, the program can only accept hex code for decryption."
+		Console_WriteLine " Attention: The program can only accept hex string for decryption!"
 		Console_WriteLine
+		jmp @@OPTIONS
 
 	@@SKIP_HEX_FORMATTING:
 	
@@ -259,10 +283,27 @@ start:
 	
 	Console_ClearScreen
 	Console_PrintHeader
-	Console_Write ' Please enter your super secret key: '
 
 	@@RECEIVE_KEY:
 	
+	Console_WriteLine ' Details: '
+	Console_WriteLine '  - Input  : Input.txt'
+	Console_Write '  - Mode   : '
+
+	cmp [encryption], '1'
+	JE @@MODE_ENCRYPTION
+	JNE @@MODE_DECRYPTION
+
+	@@MODE_ENCRYPTION:
+		Console_WriteLine 'Encryption '
+		jmp @@SKIP_MODE
+	@@MODE_DECRYPTION:
+		Console_WriteLine 'Decryption '
+
+	@@SKIP_MODE:
+	Console_WriteLine
+	Console_Write ' Please enter your 64-bit key (8 characters) : '
+
 	String_Scan key, 8 ; Get the key string from the user
 	
 	; Check if the key is indeed 64 bytes
@@ -275,7 +316,7 @@ start:
 	Console_ClearScreen
 	Console_PrintHeader
 	Console_WriteLine ' Error: The key should be 8 characters long!'
-	Console_Write ' Please enter your (secret) key: '
+	Console_WriteLine
 	jmp @@RECEIVE_KEY
 
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -296,27 +337,47 @@ start:
 		; Print the Header
 		Console_ClearScreen
 		Console_PrintHeader
-		Console_WriteLine '  Results: '
+
+		Console_WriteLine ' Details: '
+		Console_WriteLine '  - Input  : Input.txt'
+		Console_Write '  - Mode   : '
+
+		cmp [encryption], '1'
+		JE @@PRINT_ENCRYPTION
+		JNE @@PRINT_DECRYPTION
+
+		@@PRINT_ENCRYPTION:
+			Console_WriteLine 'Encryption '
+			jmp @@SKIP_PRINT
+		@@PRINT_DECRYPTION:
+			Console_WriteLine 'Decryption '
+
+		@@SKIP_PRINT:
 
 		; Print the key, nothing special here
-		Console_Write '  	Key : "'
+		Console_Write '  - Key    : "'
 		mov al, [key + 8]
 		mov [key + 8], '$'
 		lea dx, [key]
 		mov ah, 9
 		int 21h
 		mov [key + 8], al
+
+		Console_WriteLine '"'
+		Console_Write '  - Length : '
+		mov ax, [inputFileSize]
+    	Console_PrintNumberByBase ax, 10
 		
-		Console_Write '"'
-		Console_WriteLine ''
+		Console_WriteLine
+		Console_WriteLine
 
 		cmp [encryption], '1'
 		je @@encryption
 		jne @@decryption
-		
+			
 		@@encryption:
 
-			Console_Write '        Hex : '
+			Console_Write '  - Hex    : '
 
 			; Run the encryption
 			Encrypt_Run 1
@@ -325,7 +386,7 @@ start:
 		
 		@@decryption:
 
-			Console_Write '       Text : '
+			Console_Write '  - Text   : '
 
 			; Run the decryption
 			Encrypt_Run 0		
@@ -338,7 +399,6 @@ exit:
 	Console_NewLine
 
 	Console_WriteLine ' ------------------------------------------------------------------------------' 
-	Console_WriteLine ' Thank you for choosing Eyal, have a great day ;)'
 	
 	mov ax, 4c00h
 	int 21h
