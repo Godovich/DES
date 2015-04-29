@@ -18,7 +18,7 @@ radix 10		; Our default radix will be decimal
 DATASEG
 
 	; Boolean: Is encryption selected?
-	encryption 		 	db 0
+	encryption 		 	db ?
 	
 	; The key should contain 64 bits, or 8 characters.
 	key 			 	db 8 dup (?)
@@ -104,51 +104,120 @@ start:
 	mov ds, ax
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	;	Header	
+	;	Instructions
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	; Clear the screen and print the header
 	Console_ClearScreen
 	Console_PrintHeader
-	
+
+	; Now print the instructions
+	@@INSTRUCTIONS:
+	Console_PrintColoredString ' Instructions :', 0Ah
+	Console_NewLine
+
+	Console_NewLine
+	Console_WriteLine ' 1) You''ll need to enter your string to the input.txt text file '
+	Console_WriteLine '  *) If the file doesn''t exists yet, the system will create it'
+    Console_WriteLine '  *) If you wish to decrypt your string, you''ll need to enter the hex'
+	Console_WriteLine '     format of your string ( No additional characters are allowed )'
+
+	Console_NewLine
+	Console_WriteLine ' 2) In the second phase, select your operating mode, encryption or decryption.'
+	Console_WriteLine '  *) The block cipher mode of the operation is ECB ( Electronic Code Book )'
+	Console_WriteLine '  *) The encryption type is DES - Data encryption standard ( one rotation )'
+
+	Console_NewLine
+	Console_WriteLine ' 3) In the third phase the system will perform the operation.'
+	Console_WriteLine '    When the operation is finished, the result will appear on the screen.'
+	Console_WriteLine '  *) The result will appear on the screen only if its less than 100 characters.'
+	Console_WriteLine '     Either way, the result will be stored in ''Output.txt'''
+
+	Console_NewLine
+	Console_WriteLine ' Now that you''re ready to use my program, please continue.'
+	Console_NewLine
+
+	Console_WriteLine ' In order to continue, press (c), in order to exit, press (e)'
+
+	Console_NewLine
+
+	Console_PrintColoredString ' (E) Exit                                                       ', 0Ah
+	Console_PrintColoredString '   (C) Continue', 0Ah
+
+	; Read letter from keyboard
+	xor ax, ax
+	int 16h
+	and al, '_' ; To upper case 
+
+	; The user actually read my terms, great!
+	cmp al, 'C'
+	je @@FIRST_FILE_CHECK
+
+	cmp al, 'E'
+	je exit
+
+	Console_ClearScreen
+	Console_PrintHeader
+	Console_PrintColoredString ' Warning: Please read the instructions!', 4
+
+	jmp @@INSTRUCTIONS
+
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Check if input.txt exists!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	File_exists '..\Input.txt', cx 	  ; File_Exists returns 2 if the file doesn't exist
-	cmp cx, 2 						  ; Check if the return value equals to 2
-	jne @@OPTIONS 					  ; If <> than 2, the file exists, that means, jump to the next step.
-	
-	File_Create '..\Input.txt', inputFileHandle	  ; The file doesn't exist, let's create a new one.
-	Console_WriteLine ' Attention: Input.txt have just been created!'
-	Console_WriteLine
+	@@FIRST_FILE_CHECK:
+	File_CheckIfInputExists @@OPTIONS_WITH_CLEAR
 
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Encryption/Decryption selection
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	
+	@@OPTIONS_WITH_CLEAR:
+	Console_ClearScreen
+	Console_PrintHeader
+
 	@@OPTIONS:
-	Console_WriteLine ' Please enter your string into the "input.txt" file and then continue'
-	Console_WriteLine
-	Console_WriteLine ' Please select your option: (1) Encryption'
-	Console_WriteLine '                            (2) Decryption'
-	Console_WriteLine '                            (3) Exit      '
+
+	Console_PrintColoredString ' Phase one: Operating mode', 0ch
 	Console_NewLine
-	Console_Write ' What is your selection? : '
+	Console_WriteLine ' This phase should be performed after you entered your text into ''Input.txt'''
+
+	Console_NewLine
+
+	@@OPTIONS_MENU:
+
+	Console_WriteLine ' Please select your operating mode: '
+	Console_WriteLine '  (1) Encryption'
+	Console_WriteLine '  (2) Decryption'
+
+	REPT 14
+		Console_NewLine
+	ENDM
+
+	Console_PrintColoredString ' (E) Exit                                                       ', 0Ah
+	Console_PrintColoredString ' (1|2) Continue', 0Ah
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Receive Encryption/Decryption selection input
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	String_Scan encryption, 1	; Get one character input from user
+	; Read letter from keyboard
+	xor ax, ax
+	int 16h
 
-	cmp [encryption], '3'
+	cmp al, 'E'
 	je exit
-	
-	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	;	Filter the selection input, only allow 1 or 2
-	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	mov al, [encryption]		; Move the selected mode to the lower part of ax
+	cmp al, 'e'
+	je exit
+
+	mov [encryption], al        ; Move the input to encryption
 	sub al, 1 					; Turn 2 -> 1, 1 -> 0
 	xor al, 00110000b 			; Xor the ascii value with ascii '0'
 	shr al, 1 					; Only 00000001b and 00000000b will turn on the zero-flag
 	jz @@SKIP_OPTIONS_ERROR  	; OK, we can continue.
+
+	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;	Receive Encryption/Decryption selection input
+	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
 	; Well, I really need the user to choose between encryption and decryption.
 	; I know it's a hard choice, but please!
@@ -156,17 +225,24 @@ start:
 	
 	Console_ClearScreen
 	Console_PrintHeader
-	Console_WriteLine ' Invalid selection! '
+	Console_PrintColoredString ' Phase one: Operating mode', 0ch
+	Console_NewLine
+	Console_PrintColoredString ' Warning  : Invalid selection!           ', 0Eh
+	Console_NewLine
 	Console_NewLine
 
 	; Loop over and over again until the user selects a valid mode
-	jmp @@OPTIONS
+	jmp @@OPTIONS_MENU
 
 	; Great! continue...
 	@@SKIP_OPTIONS_ERROR:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Read Input.txt size!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	; Check if the user didnt delete the file 
+	File_CheckIfInputExists @@FILE_STILL_EXISTS
+
+	@@FILE_STILL_EXISTS:
 
 	File_Open '..\Input.txt', 2, inputFileHandle
 	File_Size inputFileHandle, bx					; Get size of the file and put it in bx
@@ -178,12 +254,18 @@ start:
 	cmp [inputFileSize], 0
 	JNE @@CHECK_MAXIMUM
 
+	File_Close inputFileHandle
+
 	Console_ClearScreen
 	Console_PrintHeader
-	Console_WriteLine ' Attention: Please enter your string to input.txt!'
-	Console_WriteLine
-	File_Close inputFileHandle						; Now we can close the file.
-	jmp @@OPTIONS
+	Console_PrintColoredString ' Phase one: Operating mode', 0ch
+	Console_NewLine
+	Console_PrintColoredString ' Warning  : ''Input.txt'' is empty!', 0Eh
+	Console_NewLine
+	Console_NewLine
+
+	; Loop over and over again until the user enters the text into input.txt
+	jmp @@OPTIONS_MENU
 
 	@@CHECK_MAXIMUM:
 	
@@ -208,7 +290,6 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	File_Read_All inputFileHandle, inputFileContent	; Read everything!
 	File_Close inputFileHandle						; Now we can close the file.
-
 
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Format the received hex (if at all)
@@ -302,7 +383,7 @@ start:
 
 	@@SKIP_MODE:
 	Console_WriteLine
-	Console_Write ' Please enter your 64-bit key (8 characters) : '
+	Console_PrintColoredString ' Please enter your 64-bit key (8 characters) : ', 0Ah
 
 	String_Scan key, 8 ; Get the key string from the user
 	
@@ -398,7 +479,8 @@ start:
 exit:
 	Console_NewLine
 
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
+	Console_NewLine
 	
 	mov ax, 4c00h
 	int 21h

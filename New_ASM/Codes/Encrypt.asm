@@ -62,7 +62,8 @@ macro Encrypt_Run MODE
 	;------------------------------------------------------------
 	; Shift left and right by 1
 	;------------------------------------------------------------
-	
+	; http://stackoverflow.com/a/812039
+
 	mov edx, [Left]
 	shr edx, 31
 	and edx, 1
@@ -85,7 +86,6 @@ macro Encrypt_Run MODE
 		IFE Mode-1
 			jmp @@Reg
 		ENDIF
-
 
 		mov bx, 30d
 		sub bx, [i]
@@ -121,8 +121,7 @@ macro Encrypt_Run MODE
 		mov [Right1], edx
 		
 		mov edx, [Right]
-		shr edx, 4d
-		and edx, 268435455d
+		ZFShr edx, 4
 		mov eax, [Right]
 		shl eax, 28d
 		and eax, 0ffffffffh

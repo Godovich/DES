@@ -1,5 +1,5 @@
 @echo off
-
+cycles=max
 cls
 echo.
 echo =                             Runnning TASM                                    =
@@ -37,3 +37,4 @@ goto end
 :end
 cls
 echo.
+cycles=auto

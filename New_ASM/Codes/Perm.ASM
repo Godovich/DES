@@ -89,16 +89,47 @@ endm
 ; >>> Operator in js
 macro ZFShr dst, by
 
-	push edx
+	push esi
   
 	; Create the mask (2 ^ (intSize - x) - 1)
-	mov edx, 2
-	shl edx, 32-By
-	dec edx
+	mov esi, 2
+	shl esi, 32-By
+	dec esi
 	
 	shr dst, By
-	and dst, edx
+	and dst, esi
 	
-    pop edx 
+    pop esi
 
+endm
+
+macro Create_Long_Or from, by, array, dst, cmd
+	Base_PushRegisters <ebx, eax, edx>
+
+	mov ebx, [from]
+	ZFShr ebx, by
+	and ebx, 0Fh
+	mov ax, 4d
+	mul bx
+	mov bx, ax
+	mov edx, [dword ptr array + bx]
+	cmd dst, edx
+
+	Base_PopRegisters <edx, eax, ebx>
+endm
+
+; Credit: http://www.geeksforgeeks.org/rotate-bits-of-an-integer/
+macro Rotate_Left src, by, t
+	Base_PushRegisters <edx>
+
+	mov edx, [src]
+	shl edx, by
+	mov [TempDW], edx
+	mov edx, [src]
+	ZFShr edx, t
+	or [TempDW], edx
+	mov edx, [TempDW]
+	mov [src], edx
+
+	Base_PopRegisters <edx>
 endm

@@ -217,43 +217,102 @@ macro Console_ClearScreen
 	int 10h
 endm
 
-macro Console_Exit msg
-	Console_ClearScreen
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
-	Console_WriteLine '                                     Error!' 
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
-	Console_NewLine
-	Console_Write ' '
-	Console_WriteLine msg
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
-	
-	mov ax, 4c00h
-	int 21h
-endm
-
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : PrintHeader
+;	Usage    : Console_PrintHeader
+;	Desc     : Print's the default program header
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_PrintHeader
 	local @@skip, @@encryption, @@decryption
 	
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
-	Console_Write '  DES Cipher System by Eyal Godovich'
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
 	
-	cmp [encryption], 1
+	; I have no clue why, but it fixed the problem of the double new line
+	Console_Write ' '
+	
+	Console_PrintColoredString '  DES Cipher System by Eyal Godovich', 0Ah
+	
+	cmp [encryption], '1'
 	je @@encryption
 	
-	cmp [encryption], 2
+	cmp [encryption], '2'
 	je @@decryption
 	
 	jmp @@skip
 	
 	@@decryption:
-	Console_Write '                           Mode: Decryption'
+	Console_PrintColoredString '                           Mode: Decryption', 0Ah
 	jmp @@skip
 	
 	@@encryption:
-	Console_Write '                           Mode: Encryption'
+	Console_PrintColoredString '                           Mode: Encryption',0Ah
 	
 	@@skip:
 	Console_NewLine
-	Console_WriteLine ' ------------------------------------------------------------------------------' 
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
 	Console_WriteLine
+endm
+
+macro Console_PrintColoredChar char, color
+	Base_PushRegisters<ax, bx, cx, dx>
+
+	mov ah, 09h
+	mov al, char
+	mov bh, 0
+	mov bl, color
+	mov cx, 1
+	int 10h
+
+	Console_CursorBack inc
+
+	Base_PopRegisters <dx, cx, bx, ax>
+endm
+
+macro Console_PrintColoredString string, color
+	local @@START,@@MSG, @@CHAR_LOOP, @@EXIT ; Declare the local variable and the local label because we don't want any duplicates.
+
+	; Save the current value of the registers
+	Base_PushRegisters <ax, dx, ds>
+	
+	; Explantation: The string is being stored in the code segment instead of
+	;				of the data segment, so we can skip over it.
+	jmp @@START
+	
+	; Store the string, followd by a dollar sign.
+	@@MSG db string, 0
+	
+	@@START:    
+		
+		; Switch batween the code segment and the data segment
+		mov  ax,cs 
+		mov  ds,ax
+
+		lea si, [cs:@@MSG]
+		
+		@@CHAR_LOOP:
+			lodsb 	  			 ; Load byte from the string in SI
+			or al, al 			 ; Update the zero-flag
+			jz   @@EXIT 		 ; The string ends in a zero, so, if found, exit
+			mov bl, al
+			Console_PrintColoredChar bl, color
+			jmp  @@CHAR_LOOP	 ; And now to the next character
+
+	@@EXIT:
+
+	
+	; Restore the previous value of the registers
+	Base_PopRegisters <ds, dx, ax>
+endm
+
+macro Console_CursorBack mod
+	Base_PushRegisters <ax, bx, dx>
+	mov ah, 3
+	int 10h
+
+	mov ah, 2
+	mov bh, 0
+	mod dl
+	int 10h
+
+	Base_PopRegisters <dx, bx, ax>
 endm

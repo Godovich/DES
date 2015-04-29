@@ -404,3 +404,19 @@ macro File_Exists name, handle
 		Base_PopRegisters <ds, dx, ax, bx>
 
 endm
+
+macro File_CheckIfInputExists label
+
+	File_exists '..\Input.txt', cx 	  ; File_Exists returns 2 if the file doesn't exist
+	cmp cx, 2 						  ; Check if the return value equals to 2
+	jne label 					  	  ; If <> than 2, the file exists, that means, jump to the next step.
+	
+	File_Create '..\Input.txt', inputFileHandle	  ; The file doesn't exist, let's create a new one.
+	Console_ClearScreen
+	Console_PrintHeader
+	Console_WriteLine ' Attention: Input.txt have just been created!'
+	Console_WriteLine
+
+	jmp @@OPTIONS
+
+endm
