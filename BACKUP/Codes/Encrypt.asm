@@ -57,11 +57,7 @@ macro Encrypt_Run MODE
 	;------------------------------------------------------------
 	; Permute each 64 byte chunk by IP
 	;------------------------------------------------------------
-	Perm_Perform Left, Right, 4 , 0f0f0f0fh
-	Perm_Perform Left, Right, 16, 0000ffffh
-	Perm_Perform Right, Left, 2 , 33333333h
-	Perm_Perform Right, Left, 8 , 00ff00ffh
-	Perm_Perform Left, Right, 1 , 55555555h
+	IP Left, Right
 
 	;------------------------------------------------------------
 	; Shift left and right by 1
@@ -83,33 +79,41 @@ macro Encrypt_Run MODE
 	;------------------------------------------------------------
 	; Now go through and perform the encryption or decryption  
 	;------------------------------------------------------------
+
+	mov [i], 0
+	@@ForLoop:
 	
-	num = 0
-	REPT 16
+		IFE Mode-1
+			jmp @@Reg
+		ENDIF
 
-		iteration = 0
-		REPT 2
-			IF Mode eq 0
-				mov bx, 30 - num
-			ELSE
-				mov bx, num
-			ENDIF
-
-			IF iteration eq 1
-				inc bx
-			ENDIF
-
-			imul bx, 4d
-			mov edx, [dword ptr Keys + bx]
-			
-			IF iteration eq 0
-				mov [Key1], edx
-			ELSE
-				mov [Key2], edx
-			ENDIF
-
-			iteration = 1
-		endm
+		mov bx, 30d
+		sub bx, [i]
+		imul bx, 4d
+		mov edx, [dword ptr Keys + bx]
+		mov [Key1], edx
+		
+		mov bx, 31d
+		sub bx, [i]
+		imul bx, 4d
+		mov edx, [dword ptr Keys + bx]
+		mov [Key2], edx
+		
+		jmp @@Next
+		
+		@@Reg:
+		mov bx, [i]
+		imul bx, 4d
+		mov edx, [dword ptr Keys + bx]
+		mov [Key1], edx
+		
+		mov bx, [i]
+		inc bx
+		imul bx, 4d
+		mov edx, [dword ptr Keys + bx]
+		mov [Key2], edx
+		
+		@@Next:
 
 		mov edx, [Right]
 		mov eax, [Key1]
@@ -127,54 +131,85 @@ macro Encrypt_Run MODE
 		
 		Swap Left, Right
 		
-		count = 24
-		half = 0
-		IRP Array, <spfunction2, spfunction4, spfunction6, spfunction8, spfunction1, spfunction3, spfunction5, spfunction7>
+		mov ebx, [Right1]
+		shr ebx, 24d
+		and ebx, 255d
+		and ebx, 3Fh
+		imul bx, 4d
+		mov edx, [dword ptr spfunction2 + bx]
 
-			IF half eq 0 
-				mov ebx, [Right1]
-			ELSE
-				mov ebx, [Right2]
-			ENDIF
-
-			shr ebx, count
-			and ebx, 255d
-			and ebx, 3Fh
-			imul bx, 4d
-			
-			; if it's the first time of the first half
-			IF count eq 24
-				IF half eq 0
-					mov edx, [dword ptr Array + bx]
-				ENDIF
-			ENDIF
-
-			or edx, [dword ptr Array + bx]
-
-			count = count - 8
-
-			IF count eq -8
-				half = 1
-				count = 24
-			ENDIF
-		endm
+		mov ebx, [Right1]
+		shr ebx, 16d
+		and ebx, 65535d
+		and ebx, 3Fh
+		imul bx, 4d		
+		mov eax, [dword ptr spfunction4 + bx]
+		or edx, eax
+		
+		mov ebx, [Right1]
+		shr ebx, 8d
+		and ebx, 16777215d
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction6 + bx]
+		or edx, eax
+		
+		mov ebx, [Right1]
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction8 + bx]
+		or edx, eax
+		
+		mov ebx, [Right2]
+		shr ebx, 24d
+		and ebx, 255d
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction1 + bx]
+		or edx, eax
+		
+		mov ebx, [Right2]
+		shr ebx, 16d
+		and ebx, 65535d
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction3 + bx]
+		or edx, eax
+		
+		mov ebx, [Right2]
+		shr ebx, 8d
+		and ebx, 16777215d
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction5 + bx]
+		or edx, eax
+		
+		mov ebx, [Right2]
+		and ebx, 3Fh
+		imul bx, 4d
+		mov eax, [dword ptr spfunction7 + bx]
+		or edx, eax
 		
 		xor [Right], edx
+	
+	add [i], 2
+	cmp [i], 32
+	JNE @@ForLoop
 
-		num = num + 2
-	endm
 
 	Swap Left, Right
 	
 	mov edx, [Left]
-	ZFShr edx, 1
+	shr edx, 1
+	and edx, 2147483647d
 	mov eax, [Left]
 	shl eax, 31
 	xor edx, eax
 	mov [Left], edx
 	
 	mov edx, [Right]
-	ZFShr edx, 1
+	shr edx, 1
+	and edx, 2147483647d
 	mov eax, [Right]
 	shl eax, 31
 	xor edx, eax

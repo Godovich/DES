@@ -92,7 +92,6 @@ macro Key_Expand
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	 Right side needs to be shifted and to get the last four bits of the left side!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	; temp = (left << 8) | (right >>> 20)
 
 	mov edx, [Left]
 	mov [TempDW], edx
@@ -105,7 +104,6 @@ macro Key_Expand
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	 Left needs to be put upside down
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	; left = (right << 24) | (right << 8) | (right >>> 8) | (right >>> 24)
 
 	mov edx, [Right]
 	shl edx, 24d
@@ -156,12 +154,10 @@ macro Key_Expand
 		
 		; Shift by one
 		@@SHIFT_BY_ONE:
-
 		Rotate_Left Left, 1, 27
 		Rotate_Left Right,1, 27
 		
 		@@DONE_SHIFTING:
-			; Flip everything except the 3 bits before the last bit
 			and [Left], -0Fh
 			and [Right], -0Fh
 			
@@ -172,30 +168,18 @@ macro Key_Expand
             ;          | pc2bytes2[(left >>> 20) & 0xf] | pc2bytes3[(left >>> 16) & 0xf]
             ;          | pc2bytes4[(left >>> 12) & 0xf] | pc2bytes5[(left >>> 8) & 0xf]
             ;          | pc2bytes6[(left >>> 4) & 0xf];
-			
-			CURRENT_BY = 28
-			IRP CURRENT_ARRAY, <PC2Bytes0, PC2Bytes1, PC2Bytes2, PC2Bytes3, PC2Bytes4, PC2Bytes5, PC2Bytes6>
 
-				mov ebx, [Left]
-				
-				IFE CURRENT_BY EQ 0
-					ZFShr ebx, CURRENT_BY
-				ENDIF
+			Create_Long_Or Left, 28, PC2Bytes0, [TempDW], mov
+			Create_Long_Or Left, 24, PC2Bytes1, [TempDW], or
+			Create_Long_Or Left, 20, PC2Bytes2, [TempDW], or
+			Create_Long_Or Left, 16, PC2Bytes3, [TempDW], or
+			Create_Long_Or Left, 12, PC2Bytes4, [TempDW], or
+			Create_Long_Or Left, 8 , PC2Bytes5, [TempDW], or
+			Create_Long_Or Left, 4 , PC2Bytes6, [TempDW], or
 
-				and ebx, 0Fh
-				mov ax, 4d
-				mul bx
-				mov bx, ax
-				mov edx, [dword ptr CURRENT_ARRAY + bx]
-
-				IF CURRENT_BY EQ 28
-					mov [LeftTemp], edx
-				ELSE
-					or [LeftTemp], edx
-				ENDIF
-
-				CURRENT_BY = CURRENT_BY - 4
-			endm
+			; LeftTemp = TempDW
+			mov edx, [TempDW]
+			mov [LeftTemp], edx
 			
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			;	 Create right-temp
@@ -204,36 +188,21 @@ macro Key_Expand
             ;           | pc2bytes9[(right >>> 20) & 0xf] | pc2bytes10[(right >>> 16) & 0xf]
             ;           | pc2bytes11[(right >>> 12) & 0xf] | pc2bytes12[(right >>> 8) & 0xf]
             ;           | pc2bytes13[(right >>> 4) & 0xf];
-			
-			CURRENT_BY = 28
-			IRP CURRENT_ARRAY, <PC2Bytes7, PC2Bytes8, PC2Bytes9, PC2Bytes10, PC2Bytes11, PC2Bytes12, PC2Bytes13>
 
-				mov ebx, [Right]
-				
-				IFE CURRENT_BY EQ 0
-					ZFShr ebx, CURRENT_BY
-				ENDIF
 
-				and ebx, 0Fh
-				mov ax, 4d
-				mul bx
-				mov bx, ax
-				mov edx, [dword ptr CURRENT_ARRAY + bx]
+			Create_Long_Or Right, 28, PC2Bytes7, [TempDW], mov
+			Create_Long_Or Right, 24, PC2Bytes8 , [TempDW], or
+			Create_Long_Or Right, 20, PC2Bytes9 , [TempDW], or
+			Create_Long_Or Right, 16, PC2Bytes10, [TempDW], or
+			Create_Long_Or Right, 12, PC2Bytes11, [TempDW], or
+			Create_Long_Or Right, 8 , PC2Bytes12, [TempDW], or
+			Create_Long_Or Right, 4 , PC2Bytes13, [TempDW], or
 
-				IF CURRENT_BY EQ 28
-					mov [RightTemp], edx
-				ELSE
-					or [RightTemp], edx
-				ENDIF
-
-				CURRENT_BY = CURRENT_BY - 4
-			endm
-
+			; RightTemp = TempDW
+			mov edx, [TempDW]
+			mov [RightTemp], edx
 
 			; temp = ((righttemp >>> 16) ^ lefttemp) & 0x0000ffff; 
-
-			mov ebx, [RightTemp]
-			mov [TempDW], ebx
 			ZFShr [TempDW], 16
 			mov edx, [LeftTemp]
 			xor [TempDW], edx
@@ -243,28 +212,31 @@ macro Key_Expand
 			;	 Create keys!
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			
-			; Add the first key to the subkeys array!
+			; First key
 			mov edx, [LeftTemp]
 			xor edx, [TempDW]
 			mov bx, 4d
-			imul bx, [KeyNum]
+			imul bx, [KeyNum] ; I swear to god, when I found out about imul, i smiled.
 			mov [dword ptr Keys + bx], edx
 			inc [KeyNum]
 			
-			; Add the second key to the subkeys array!
+			; Second key
 			mov edx, [TempDW]
 			shl [TempDW], 10h
 			mov edx, [TempDW]
 			xor edx, [RightTemp]
 			mov bx, 4d
-			imul bx, [KeyNum]
+			imul bx, [KeyNum] ; I swear to god, when I found out about imul, i smiled.
 			mov [dword ptr Keys + bx], edx
 			inc [KeyNum]
 			
-		; Restore bx
+		; Restore BX
 		pop bx
 		
 		; Add 1 to bx
 		inc bx
 	endm
+	
+		
+	
 endm
