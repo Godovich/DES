@@ -205,85 +205,60 @@ macro Encrypt_Run MODE
 		; encryption
 
 		IFE Mode-1
-			mov eax, [Left]
-			ZFShr eax, 24
-			and eax, 255d
-		 	call AddAxHexChar
-		
-			mov eax, [Left]
-			ZFShr eax, 16
-			and eax, 255d
-		 	call AddAxHexChar
-		
-			
-			mov eax, [Left]
-			ZFShr eax, 8
-			and eax, 255d
-		 	call AddAxHexChar
-			
-			mov eax, [Left]
-			and eax, 255d
-		 	call AddAxHexChar
-		
-			mov eax, [Right]
-			ZFShr eax, 24
-			call AddAxHexChar
-			
-			mov eax, [Right]
-			ZFShr eax, 16
-			and eax, 255d
-		 	call AddAxHexChar
-			
-			mov eax, [Right]
-			ZFShr eax, 8
-			and eax, 255d
-		 	call AddAxHexChar
-		
-			mov eax, [Right]
-			and eax, 255d
-			call AddAxHexChar
+
+			BY = 24
+			IS_RIGHT = 0
+
+			REPT 8
+				
+				IF IS_RIGHT EQ 0
+					mov eax, [Left]
+				ELSE 
+					mov eax, [Right]
+				ENDIF
+
+				IFE BY EQ 0 
+					ZFShr eax, BY
+				ENDIF
+
+				and eax, 0FFh
+			 	call AddAxHexChar
+
+				BY = BY - 8
+
+				IF BY EQ 0
+					IS_RIGHT = 1
+					BY = 24
+				ENDIF
+			endm
+
 		ELSE
-			mov eax, [Left]
-			shr eax, 24d
-			and eax, 255d
-			call AddChar
-		
-			mov eax, [Left]
-			shr eax, 16d
-			and eax, 65535d
-			and eax, 255d
-			call AddChar
-			
-			mov eax, [Left]
-			shr eax, 8d
-			and eax, 16777215d
-			and eax, 255d
-			call AddChar
-			
-			mov eax, [Left]
-			and eax, 255d
-			call AddChar
-			
-			mov eax, [Right]
-			shr eax, 24d
-			and eax, 255d
-			call AddChar
-			
-			mov eax, [Right]
-			shr eax, 16d
-			and eax, 65535d
-			and eax, 255d
-			call AddChar
-			
-			mov eax, [Right]
-			shr eax, 8d
-			and eax, 16777215d
-			and eax, 255d
-			call AddChar
-		
-			mov eax, [Right]
-			and eax, 255d
-			call AddChar
+
+			SHR_BY = 24
+			CURRENT_PART = Left
+			REPT 8
+				mov eax, [CURRENT_PART]
+				
+				; We dont want to shift by zero!
+				IFE SHR_BY EQ 0
+					ZFShr eax, SHR_BY
+				ENDIF
+
+				; We only need the rightest part of the integer
+				and eax, 0FFh
+
+				; Add the character
+				call AddChar
+
+				; Substract 8 from the count, next part.
+				SHR_BY = SHR_BY - 8
+
+				; If the left part is done, move to the right part
+				IF SHR_BY EQ -8
+					CURRENT_PART = Right
+					SHR_BY = 24
+				ENDIF
+			endm
 		ENDIF
 		
 	add [m], 8d
