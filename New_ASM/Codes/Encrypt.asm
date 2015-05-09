@@ -155,22 +155,11 @@ macro Encrypt_Run MODE
 		num = num + 2
 	endm
 
+	; Swap left & right and then rotate them 1 bit to the right
 	Swap Left, Right
-	
-	mov edx, [Left]
-	ZFShr edx, 1
-	mov eax, [Left]
-	shl eax, 31
-	xor edx, eax
-	mov [Left], edx
-	
-	mov edx, [Right]
-	ZFShr edx, 1
-	mov eax, [Right]
-	shl eax, 31
-	xor edx, eax
-	mov [Right], edx
-	
+	ror [Left], 1
+	ror [Right], 1
+
 	;------------------------------------------------------------
 	; Perform IP-1, which is IP in the opposite direction
 	;------------------------------------------------------------
