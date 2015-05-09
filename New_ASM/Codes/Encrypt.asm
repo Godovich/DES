@@ -68,17 +68,8 @@ macro Encrypt_Run MODE
 	;------------------------------------------------------------
 	; http://stackoverflow.com/a/812039
 
-	mov edx, [Left]
-	shr edx, 31
-	and edx, 1
-	shl [Left], 1
-	or [Left], edx
-	
-	mov edx, [Right]
-	shr edx, 31
-	and edx, 1
-	shl [Right], 1
-	or [Right], edx
+	rol [Right], 1
+	rol [Left] , 1
 
 	;------------------------------------------------------------
 	; Now go through and perform the encryption or decryption  
@@ -188,16 +179,7 @@ macro Encrypt_Run MODE
 	Perm_Perform Right, Left, 2 , 33333333h
 	Perm_Perform Left, Right, 16, 0000ffffh
 	Perm_Perform Left, Right, 4 , 0f0f0f0fh
-	
-	;------------------------------------------------------------
-	; Debugging: Print Right
-	;------------------------------------------------------------
-	; call NEW_LINE
-	; print 'Right: '
-	; mov edx, [Right]
-	; DEBUG_REG_32 edx
-	
-	
+
 	;------------------------------------------------------------
 	; Print the final string!
 	;------------------------------------------------------------
@@ -262,7 +244,7 @@ macro Encrypt_Run MODE
 	JLE @@whileLoop
 
 	IF Mode eq 0
-		
+
 	ENDIF
 
 
