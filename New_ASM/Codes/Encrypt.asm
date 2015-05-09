@@ -10,8 +10,8 @@ macro Encrypt_Run MODE
 	local @@ForLoop, @@whileLoop, @@Reg, @@Next
 
 
-	; if(Mode-1 == 0) / if the mode is encryption
-	IFE MODE-1
+	; If the mode is encryption
+	IF Mode eq 1
 
 		; Encryption content
 		lea si, [inputFileContent]
@@ -204,33 +204,28 @@ macro Encrypt_Run MODE
 
 		; encryption
 
-		IFE Mode-1
+		IF  Mode eq 1
 
-			BY = 24
-			IS_RIGHT = 0
+		CURRENT_HALF = Left
+		CURRENT_BY   = 24
 
-			REPT 8
-				
-				IF IS_RIGHT EQ 0
-					mov eax, [Left]
-				ELSE 
-					mov eax, [Right]
-				ENDIF
+		REPT 8
+			mov eax, [CURRENT_HALF]
 
-				IFE BY EQ 0 
-					ZFShr eax, BY
-				ENDIF
+			IFE CURRENT_BY EQ 0 
+				ZFShr eax, CURRENT_BY
+				and eax, 255
+			ENDIF
 
-				and eax, 0FFh
-			 	call AddAxHexChar
+			call AddAxHexChar
 
-				BY = BY - 8
+			CURRENT_BY = CURRENT_BY - 8
 
-				IF BY EQ 0
-					IS_RIGHT = 1
-					BY = 24
-				ENDIF
-			endm
+			IF CURRENT_BY EQ -8
+				CURRENT_BY    = 24
+				CURRENT_HALF  = Right
+			ENDIF
+		endm
 
 		ELSE
 
@@ -266,10 +261,26 @@ macro Encrypt_Run MODE
 	cmp ax, [inputFileSize]
 	JLE @@whileLoop
 
-	mov bx, [outputc]
+	IF Mode eq 0
+		
+	ENDIF
+
+
 	mov [output + bx], 0h
 	lea si, [output]
-	call PRINT_STR
+	String_PrintUpTo 62
+
+	File_Create '..\Output.txt', inputFileHandle
+	File_Close inputFileHandle
+	
+	File_Open '..\Output.txt', 2, inputFileHandle
+	
+	mov ah, 40h
+	mov bx, [inputFileHandle]
+	lea si, [output]
+	String_GetSize cx
+	mov dx, si
+	int 21h
 
 endm
 
@@ -285,6 +296,27 @@ proc AddAxHexChar
 	call AddAH
 	
 	ret
+endp
+
+proc ReplaceNullBytes
+
+	mov cx, [outputc]
+	
+	CharLoop:
+	mov bx, cx
+	cmp [output + bx], 0
+	JNE _End
+	
+	mov [output + bx], 20h
+	
+	
+	_End:
+		dec cl
+		cmp cl, 0
+		JNE CharLoop
+		
+	ret
+
 endp
 
 proc AddAH
@@ -348,7 +380,7 @@ proc PRINT_STR
 	or al, al ; we need to check if al is equal to zero
     jz   @@EXIT
     PUTC al
-jmp  @@CHAR_LOOP
+	jmp  @@CHAR_LOOP
 
 @@EXIT:
     pop  si

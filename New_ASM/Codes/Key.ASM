@@ -131,6 +131,7 @@ macro Key_Expand
 	
 	xor bx, bx
 	
+	KeyIndex = 0
 	; The REPT method is way faster than the loop method
 	REPT 16
 		local @@DONE_SHIFTING, @@SHIFT_BY_ONE
@@ -161,10 +162,8 @@ macro Key_Expand
 		Rotate_Left Right,1, 27
 		
 		@@DONE_SHIFTING:
-			; Flip everything except the 3 bits before the last bit
 			and [Left], -0Fh
 			and [Right], -0Fh
-			
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			;	 Create left-temp
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -189,14 +188,14 @@ macro Key_Expand
 				mov edx, [dword ptr CURRENT_ARRAY + bx]
 
 				IF CURRENT_BY EQ 28
-					mov [LeftTemp], edx
+					mov ebp, edx
 				ELSE
-					or [LeftTemp], edx
+					or ebp, edx
 				ENDIF
 
 				CURRENT_BY = CURRENT_BY - 4
 			endm
-			
+
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			;	 Create right-temp
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -221,9 +220,9 @@ macro Key_Expand
 				mov edx, [dword ptr CURRENT_ARRAY + bx]
 
 				IF CURRENT_BY EQ 28
-					mov [RightTemp], edx
+					mov ecx, edx
 				ELSE
-					or [RightTemp], edx
+					or ecx, edx
 				ENDIF
 
 				CURRENT_BY = CURRENT_BY - 4
@@ -231,12 +230,9 @@ macro Key_Expand
 
 
 			; temp = ((righttemp >>> 16) ^ lefttemp) & 0x0000ffff; 
-
-			mov ebx, [RightTemp]
-			mov [TempDW], ebx
+			mov [TempDW], ecx
 			ZFShr [TempDW], 16
-			mov edx, [LeftTemp]
-			xor [TempDW], edx
+			xor [TempDW], ebp
 			and [TempDW], 0FFFFh
 			
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -244,27 +240,24 @@ macro Key_Expand
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			
 			; Add the first key to the subkeys array!
-			mov edx, [LeftTemp]
-			xor edx, [TempDW]
-			mov bx, 4d
-			imul bx, [KeyNum]
-			mov [dword ptr Keys + bx], edx
-			inc [KeyNum]
+			xor ebp, [TempDW]
+			mov bx, 4
+			imul bx, KeyIndex
+			mov [dword ptr Keys + bx],  ebp
+			KeyIndex = KeyIndex + 1
 			
 			; Add the second key to the subkeys array!
 			mov edx, [TempDW]
 			shl [TempDW], 10h
 			mov edx, [TempDW]
-			xor edx, [RightTemp]
+			xor edx, ecx
 			mov bx, 4d
-			imul bx, [KeyNum]
+			imul bx, KeyIndex
 			mov [dword ptr Keys + bx], edx
-			inc [KeyNum]
+			KeyIndex = KeyIndex + 1
 			
-		; Restore bx
+		; Restore and increase bx
 		pop bx
-		
-		; Add 1 to bx
 		inc bx
 	endm
 endm

@@ -108,10 +108,6 @@ macro File_Close handle
 	
 	@@error:
 		mov [handle], -1
-		Console_NewLine
-		Console_Write 'Error: Cant close file! ( Code: '
-		Console_PrintNumberByBase ax, 16
-		Console_WriteLine ' )'
 		
 	@@exit:
 	; Restore the original value of ax & bx
@@ -262,10 +258,6 @@ macro File_Size handle, dst
 	jmp @@exit
 	
 	@@error:
-		Console_NewLine
-		Console_Write 'Error: Cant read file size! ( Code: '
-		Console_PrintNumberByBase ax, 16
-		Console_WriteLine 'h )'
 	
 	@@exit:
 	

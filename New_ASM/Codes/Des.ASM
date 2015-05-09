@@ -7,6 +7,7 @@
 ; =============================================================================
 
 .386 			; Generate 32-bit code instead of 16.
+
 IDEAL			; Syntax: IDEAL
 MODEL small		; One DS and one CS Please.
 STACK 100h		; Define the stack size
@@ -27,6 +28,9 @@ DATASEG
 	Keys 				dd 32 dup (?)
 	ShiftsArray 		db 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0
 	
+	source db 64 dup (0)
+	permutation db 64 dup (0)
+
 	; Permuted Choice 2 ( PC -2 )
 	; http://en.wikipedia.org/wiki/DES_supplementary_material#Permuted_choice_2_.28PC-2.29
 	PC2Bytes0  			dd 0h,4h,20000000h,20000004h,10000h,10004h,20010000h,20010004h,200h,204h,20000200h,20000204h,10200h,10204h,20010200h,20010204h
@@ -54,7 +58,7 @@ DATASEG
 	spfunction7 dd 200000h,4200002h,4000802h,0h,800h,4000802h,200802h,4200800h,4200802h,200000h,0h,4000002h,2h,4000000h,4200002h,802h,4000800h,200802h,200002h,4000800h,4000002h,4200000h,4200800h,200002h,4200000h,800h,802h,4200802h,200800h,2h,4000000h,200800h,4000000h,200800h,200000h,4000802h,4000802h,4200002h,4200002h,2h,200002h,4000000h,4000800h,200000h,4200800h,802h,200802h,4200800h,802h,4000002h,4200802h,4200000h,200800h,0h,2h,4200802h,0h,200802h,4200000h,800h,4000002h,4000800h,800h,200002h
 	spfunction8 dd 10001040h,1000h,40000h,10041040h,10000000h,10001040h,40h,10000000h,40040h,10040000h,10041040h,41000h,10041000h,41040h,1000h,40h,10040000h,10000040h,10001000h,1040h,41000h,40040h,10040040h,10041000h,1040h,0h,0h,10040040h,10000040h,10001000h,41040h,40000h,41040h,40000h,10041000h,1000h,40h,10040040h,1000h,41040h,10001000h,40h,10000040h,10040000h,10040040h,10000000h,40000h,10001040h,0h,10041040h,40040h,10000040h,10040000h,10001000h,10001040h,0h,10041040h,41000h,41000h,1040h,1040h,40040h,10000000h,10041000h
 
-	; "Temp" variables, multi-use
+	; Other Variables
 	RightTemp 			dd 0h
 	LeftTemp  			dd 0h
 	KeyNum 				dw 0
@@ -81,7 +85,6 @@ DATASEG
 	inputFileContent 	db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
 	inputFileContentDec db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
 	inputFileSize		dw ?
-	
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ; *********************           Code Segment           ********************
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

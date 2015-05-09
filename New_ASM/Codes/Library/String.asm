@@ -168,3 +168,38 @@ macro String_CharToASCII char
 
 	@@EXIT:
 endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : PrintUpTo
+;	Usage    : String_PrintUpTo 1
+;	Desc     : Print a limited number of characters from the string that is stored in memory
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_PrintUpTo xChars
+	local @@CHAR_LOOP, @@EXIT
+
+	push cx
+	push ax
+
+	mov cx, 0
+
+	@@CHAR_LOOP:
+		lodsb
+		or al, al
+		jz @@EXIT
+		putc al
+
+		; if (++cx < x) goto @@CHAR_LOOP
+		inc cx
+		cmp cx, xChars
+		JNE @@CHAR_LOOP
+
+	; If the string is bigger than x chars print "..."
+	Console_Write '...'
+
+	@@EXIT:
+	
+	pop ax
+	pop cx
+
+endm
