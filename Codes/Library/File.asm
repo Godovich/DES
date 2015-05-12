@@ -397,6 +397,12 @@ macro File_Exists name, handle
 
 endm
 
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : CheckIfInputExists
+;	Usage    : File_CheckIfInputExists label
+;	Desc     : Checks if the input file exists
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 macro File_CheckIfInputExists label
 
 	File_exists '..\Input.txt', cx 	  ; File_Exists returns 2 if the file doesn't exist
