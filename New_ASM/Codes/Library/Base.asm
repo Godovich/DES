@@ -13,13 +13,11 @@
 ;	Desc     : Pushes the registers to the stack 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-macro Base_PushRegisters registers
-	; Loop through each one of the registers in the list.
-	irp reg, <registers>
-		; Push the register
+MACRO Base_PushRegisters registers
+	IRP reg, <registers>
 		push reg
-	endm  
-endm
+	ENDM  
+ENDM
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;	Name     : PopRegisters
@@ -27,10 +25,20 @@ endm
 ;	Desc     : Pops the registers to the stack  
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-macro Base_PopRegisters registers
-	; Loop through each one of the registers in the list.
-	irp reg, <registers>
-		; Pop the register
+MACRO Base_PopRegisters registers
+	IRP reg, <registers>
 		pop reg
-	endm 
-endm
+	ENDM 
+ENDM
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : Load
+;	Usage    : Base_Load '..\Codes\Test.asm'
+;	Desc     : Load's a file content to the program memory
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MACRO Base_Load fileList
+	IRP File, <fileList>
+		include File
+	ENDM
+ENDM

@@ -32,11 +32,12 @@ macro Encrypt_Run MODE
 	lodsd		
 	
 	; Reverse bit order
+	; I have no clue why i'm getting the bits in reverse order
 	xchg  ah, al
 	ror   eax, 16
 	xchg  ah, al
 	
-	; Set left
+	; Set as left
 	mov [Left], eax
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -47,16 +48,32 @@ macro Encrypt_Run MODE
 	lodsd		
 	
 	; Reverse bit order
+	; I have no clue why i'm getting the bits in reverse order
 	xchg  ah, al
 	ror   eax, 16
 	xchg  ah, al
 	
-	; Set right
+	; Set as right
 	mov [Right], eax
 
 	;------------------------------------------------------------
 	; Permute each 64 byte chunk by IP
 	;------------------------------------------------------------
+	; This code has been written by Eric Young, the creator of SSLeay ( Today called OpenSSL ).
+	; The Original Code:
+	; 	
+	;	#define IP(l,r)
+    ;   { 
+    ;   	register DES_LONG tt; 
+    ;   	PERM_OP(r,l,tt, 4,0x0f0f0f0fL); 
+    ;   	PERM_OP(l,r,tt,16,0x0000ffffL); 
+    ;   	PERM_OP(r,l,tt, 2,0x33333333L); 
+    ;   	PERM_OP(l,r,tt, 8,0x00ff00ffL); 
+    ;   	PERM_OP(r,l,tt, 1,0x55555555L); 
+    ;   }
+    ;
+    ; Source URL: https://github.com/openssl/openssl/blob/master/crypto/des/des_locl.h#L415
+
 	Perm_Perform Left, Right, 4 , 0f0f0f0fh
 	Perm_Perform Left, Right, 16, 0000ffffh
 	Perm_Perform Right, Left, 2 , 33333333h
@@ -64,10 +81,8 @@ macro Encrypt_Run MODE
 	Perm_Perform Left, Right, 1 , 55555555h
 
 	;------------------------------------------------------------
-	; Shift left and right by 1
+	; Rotate left & right 1 bit to the left
 	;------------------------------------------------------------
-	; http://stackoverflow.com/a/812039
-
 	rol [Right], 1
 	rol [Left] , 1
 
@@ -75,94 +90,137 @@ macro Encrypt_Run MODE
 	; Now go through and perform the encryption or decryption  
 	;------------------------------------------------------------
 	
-	num = 0
+	Index = 0
 	REPT 16
 
 		iteration = 0
 		REPT 2
+
+			; In decryption, we want the keys in reverse order
+			; So let's subtract the key index from 30.
 			IF Mode eq 0
-				mov bx, 30 - num
+				mov bx, 30 - Index
 			ELSE
-				mov bx, num
+				mov bx, Index
 			ENDIF
 
+			; If it's the second iteration, add 1 to bx.
 			IF iteration eq 1
 				inc bx
 			ENDIF
 
+			; Multiply the index by 4 ( Each element in the array is dword ( 4 Bytes ) )
 			imul bx, 4d
+
+			; Get the element
 			mov edx, [dword ptr Keys + bx]
 			
+			; If it's the first iteration, it's the first key.
+			; If it's the second iteration, it's the second key.
 			IF iteration eq 0
 				mov [Key1], edx
 			ELSE
 				mov [Key2], edx
 			ENDIF
 
-			iteration = 1
+			; Add 1 to the iteration count.
+			; Technically, we can change this to "iteration = 1", because the loop will only run twice. 
+			iteration = iteration + 1
 		endm
 
+		;------------------------------------------------------------
+		; Now apply the feistel function 
+		;------------------------------------------------------------
+		; right1 = right ^ keys[0]; 
 		mov edx, [Right]
 		mov eax, [Key1]
 		xor edx, eax
 		mov [Right1], edx
 		
+		; right2 = ((right >>> 4) | (right << 28)) ^ keys[1];
 		mov edx, [Right]
 		ZFShr edx, 4
 		mov eax, [Right]
 		shl eax, 28d
 		and eax, 0ffffffffh
-		or edx, eax ; | is like + in this case
+		or edx, eax
 		xor edx, [Key2]
 		mov [Right2], edx
-		
 		Swap Left, Right
 		
-		count = 24
-		half = 0
+		; Clear the edx register
+		xor edx, edx
+
+		; The result is attained by passing these bytes through the S selection functions.
+		; The next part is a self-generating code, that means that in the compilation proccess, it will change to the actual code.
+		; It will create 8 blocks, that will look something like that:
+		;	mov ebx, [Right2]
+		;	shr ebx, 16d
+		;	and ebx, 65535d
+		;	and ebx, 3Fh
+		;	imul bx, 4d
+		;	mov eax, [dword ptr spfunction3 + bx]
+		;	or edx, eax
+		Count = 24
+		Part = Right1
 		IRP Array, <spfunction2, spfunction4, spfunction6, spfunction8, spfunction1, spfunction3, spfunction5, spfunction7>
 
-			IF half eq 0 
-				mov ebx, [Right1]
-			ELSE
-				mov ebx, [Right2]
-			ENDIF
+			; The first half is right1, and the second half is right2
+			mov ebx, [Part]
 
+			; Shift by the current count
 			shr ebx, count
-			and ebx, 255d
-			and ebx, 3Fh
-			imul bx, 4d
-			
-			; if it's the first time of the first half
-			IF count eq 24
-				IF half eq 0
-					mov edx, [dword ptr Array + bx]
-				ENDIF
-			ENDIF
 
+			; There are only 64 options
+			and ebx, 3Fh
+
+			; Each element in the array is a double-word ( 4 Bytes )
+			imul bx, 4d
+
+			; Or with the current value
 			or edx, [dword ptr Array + bx]
 
-			count = count - 8
+			; Subtract 8 from the count
+			Count = Count - 8
 
-			IF count eq -8
-				half = 1
-				count = 24
+			; If we finished with Right1, move to Right2
+			IF Count eq -8
+				Part = Right2
+				Count = 24
 			ENDIF
 		endm
 		
+		; Xor the right variable with the result of the S selection result.
 		xor [Right], edx
 
-		num = num + 2
+		; Used two keys, move to the next ones.
+		Index = Index + 2
 	endm
 
-	; Swap left & right and then rotate them 1 bit to the right
+	;------------------------------------------------------------
+	; Perform IP-1 (Final Permutation / FP)
+	;------------------------------------------------------------
+	; This code has been written by Eric Young, the creator of SSLeay ( Today called OpenSSL ).
+	; The Original Code:
+	; 	
+    ;	#define FP(l,r) 
+    ;   { 
+    ;   	register DES_LONG tt;
+    ;   	PERM_OP(l,r,tt, 1,0x55555555L);
+    ;   	PERM_OP(r,l,tt, 8,0x00ff00ffL);
+    ;   	PERM_OP(l,r,tt, 2,0x33333333L);
+    ;   	PERM_OP(r,l,tt,16,0x0000ffffL);
+    ;   	PERM_OP(l,r,tt, 4,0x0f0f0f0fL);
+    ;   }
+    ;
+    ;
+    ; Github URL: https://github.com/openssl/openssl/blob/master/crypto/des/des_locl.h#L425
+
+	; The encryption is complete.
+    ; Now reverse-permute the ciphertext to produce the final result.
 	Swap Left, Right
 	ror [Left], 1
 	ror [Right], 1
-
-	;------------------------------------------------------------
-	; Perform IP-1, which is IP in the opposite direction
-	;------------------------------------------------------------
 	Perm_Perform Left, Right, 1 , 55555555h
 	Perm_Perform Right, Left, 8 , 00ff00ffh
 	Perm_Perform Right, Left, 2 , 33333333h
@@ -173,265 +231,99 @@ macro Encrypt_Run MODE
 	; Print the final string!
 	;------------------------------------------------------------
 
-		; encryption
+	; The next part is a self-generating code, that means that this code will compile once and will change itself to the actual code.
+	; The original code was about 500 lines of code and I managed to replace it with 39 lines of self-generating code.
 
-		IF  Mode eq 1
+	; After compilation, each block looks something like that:
+	; For encryption:
+	; 	mov eax, [Left]
+	;	mov eax, [Left]
+	;	ZFShr eax, 8
+	;	and eax, 255d
+	;	call AddAxHexChar
+	;
+	; For decryption:
+	;	mov eax, [Left]
+	;	shr eax, 16d
+	;	and eax, 65535d
+	;	and eax, 255d
+	;	call AddChar
 
-		CURRENT_HALF = Left
-		CURRENT_BY   = 24
+	CURRENT_HALF = Left
+	CURRENT_BY   = 24
 
-		REPT 8
-			mov eax, [CURRENT_HALF]
+	REPT 8
+		mov eax, [CURRENT_HALF]
 
-			IFE CURRENT_BY EQ 0 
-				ZFShr eax, CURRENT_BY
-				and eax, 255
-			ENDIF
+		; If the current shift value is diffrent than zero, then shift.
+		IFE CURRENT_BY EQ 0 
+			ZFShr eax, CURRENT_BY
+			and eax, 255
+		ENDIF
 
-			call AddAxHexChar
+		; For encryption we want to print the result in hex, and for decryption in plain text
+		IF Mode eq 1
 
-			CURRENT_BY = CURRENT_BY - 8
-
-			IF CURRENT_BY EQ -8
-				CURRENT_BY    = 24
-				CURRENT_HALF  = Right
-			ENDIF
-		endm
+			; First char
+			mov ah, al
+			shr ah, 4
+			String_AddHexToResult ah
+		
+			; Second char
+			mov ah, al
+			and ah, 0Fh
+			String_AddHexToResult ah
 
 		ELSE
 
-			SHR_BY = 24
-			CURRENT_PART = Left
-			REPT 8
-				mov eax, [CURRENT_PART]
-				
-				; We dont want to shift by zero!
-				IFE SHR_BY EQ 0
-					ZFShr eax, SHR_BY
-				ENDIF
+			; Add the character
+			mov bx, [outputc]
+			mov [byte ptr output + bx], al
+			inc [outputc]
 
-				; We only need the rightest part of the integer
-				and eax, 0FFh
-
-				; Add the character
-				call AddChar
-
-				; Substract 8 from the count, next part.
-				SHR_BY = SHR_BY - 8
-
-				; If the left part is done, move to the right part
-				IF SHR_BY EQ -8
-					CURRENT_PART = Right
-					SHR_BY = 24
-				ENDIF
-			endm
 		ENDIF
-		
+
+		CURRENT_BY = CURRENT_BY - 8
+
+		; If the left part is done, move to the right part
+		IF CURRENT_BY EQ -8
+			CURRENT_BY    = 24
+			CURRENT_HALF  = Right
+		ENDIF
+	endm
+
+	; Check if the loop is over, if not, loop again.
 	add [m], 8d
 	mov ax, [m]
 	cmp ax, [inputFileSize]
 	JLE @@whileLoop
 
-	IF Mode eq 0
-
-	ENDIF
-
-
-	mov [output + bx], 0h
-	lea si, [output]
-	String_PrintUpTo 62
-
+	; Create the output.txt file if necessary
 	File_Create '..\Output.txt', inputFileHandle
 	File_Close inputFileHandle
 	
+	; Open the file and save the handle 
 	File_Open '..\Output.txt', 2, inputFileHandle
 	
-	mov ah, 40h
-	mov bx, [inputFileHandle]
+	; If the mode is decryption, adjust the output text size
+	IF Mode eq 0
+		add [outputc], 8 ; \ Add 8
+		shr [outputc], 1 ; / Divide by 2
+	ENDIF
+
+	; End the string with ascii zero
+	mov bx, [outputc]
+	mov [output + bx], 0
+
+	; Print up to 62 characters from the string
 	lea si, [output]
-	String_GetSize cx
-	mov dx, si
+	String_PrintUpTo 62
+
+	; Write the output to Output.txt
+	mov ah, 40h
+	mov cx, [outputc]
+	mov bx, [inputFileHandle]
+	lea dx, [output]
 	int 21h
 
 endm
-
-proc AddAxHexChar
-	
-	;call PRINT_NUM_HEX_WITHOUT_H ; al is what we want
-	mov ah, al
-	shr ah, 4
-	call AddAH
-	
-	mov ah, al
-	and ah, 0Fh
-	call AddAH
-	
-	ret
-endp
-
-proc ReplaceNullBytes
-
-	mov cx, [outputc]
-	
-	CharLoop:
-	mov bx, cx
-	cmp [output + bx], 0
-	JNE _End
-	
-	mov [output + bx], 20h
-	
-	
-	_End:
-		dec cl
-		cmp cl, 0
-		JNE CharLoop
-		
-	ret
-
-endp
-
-proc AddAH
-
-	push ax
-	
-	mov al, ah
-	cmp al, 10
-	JGE CharValue11
-	JL NumValue
-	
-	CharValue11:
-		sub al, 10d
-		add al, 'A'
-
-		jmp Finish11
-	
-	NumValue:
-		add al, '0'
-	
-	
-	Finish11:
-	
-	call AddChar
-
-	pop ax
-	ret
-endp
-
-proc AddChar
-
-	mov bx, [outputc]
-	
-	mov [byte ptr output + bx], al
-
-	inc [outputc]
-	
-	ret
-endp
-
-macro PUTC char
-   push ax
-   push dx
-
-
-    mov  dl, char
-    mov  ah, 02h
-    int  21h
-
-    pop ax
-    pop dx
-
-endm  
-
-proc PRINT_STR
-    push ax
-    push si
-    
-@@CHAR_LOOP:
-    lodsb
-	or al, al ; we need to check if al is equal to zero
-    jz   @@EXIT
-    PUTC al
-	jmp  @@CHAR_LOOP
-
-@@EXIT:
-    pop  si
-    pop  ax
-    ret 
-endp 
-
-; Takes hex string from DecString and puts in EncDecString
-proc hexToString
-	
-	; cx, 1 ; foreach two characters
-	; CX - Length
-	mov bx, 0
-	mov dx, 0
-
-	ForeachChar:
-		mov ax, 0d
-	
-		mov ah, [inputFileContent + bx] ; Contains current char	
-
-		; Check if al is a hex character
-		String_IsHex ah
-		cmp si, 1
-		JNE @@ERROR_NOT_HEX
-		
-		cmp ah, 'A'
-		JGE CharValue
-		sub ah, '0'
-		JMP After
-		CharValue:
-			and ah, '_' ; To upper case 
-			sub ah, 'A'
-			add ah, 10
-
-		After: 
-		inc bx
-		mov al, [inputFileContent + bx] ; Contains current char	
-		
-		; Check if al is a hex character
-		String_IsHex al
-		cmp si, 1
-		JNE @@ERROR_NOT_HEX
-
-		cmp al, 'A'
-		JGE CharValue1
-		sub al, '0'
-		JMP After1
-		CharValue1:
-			and al, '_'
-			sub al, 'A'
-			add al, 10
-
-		After1: 
-		shl ah, 4
-		add ah, al
-		
-		push bx
-		mov bx, dx
-		mov [inputFileContentDec + bx], ah
-		inc dx
-		pop bx
-		
-	inc bx
-	cmp bx, cx
-	JNE ForeachChar
-
-	mov [inputFileContentDec + bx], 0
-	mov [inputFileSize], cx
-	shr [inputFileSize], 1
-
-	mov al, 2
-	ret
-
-
-
-	@@ERROR_NOT_HEX:
-		Console_ClearScreen
-		Console_PrintHeader	
-		Console_WriteLine " Sorry, the program can only accept hex code for decryption."
-		Console_WriteLine
-		mov al, 1
-	ret
-endp

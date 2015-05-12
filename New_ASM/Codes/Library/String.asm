@@ -187,7 +187,11 @@ macro String_PrintUpTo xChars
 		lodsb
 		or al, al
 		jz @@EXIT
-		putc al
+		
+		; Print the character
+		mov  dl, al
+		mov  ah, 02h
+		int  21h
 
 		; if (++cx < x) goto @@CHAR_LOOP
 		inc cx
@@ -202,4 +206,28 @@ macro String_PrintUpTo xChars
 	pop ax
 	pop cx
 
+endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : AddHexToResult
+;	Usage    : String_AddHexToResult 1
+;	Desc     : Print a limited number of characters from the string that is stored in memory
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_AddHexToResult char
+	local @@skip, @@add
+
+	cmp char, 10d
+	jge @@add
+	jmp @@skip
+
+	@@add:
+	add char, 7d
+
+	@@skip:
+	
+	add char, '0'
+	mov bx, [outputc]
+	mov [byte ptr output + bx], char
+	inc [outputc]
 endm

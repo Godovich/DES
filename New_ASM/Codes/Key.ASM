@@ -37,7 +37,6 @@ macro Key_Expand
 	; After the creation of left and right, the bits of these two integers are then organised according to permuted choice 1 (PC-1).
 	; The bits will end up in the following places:
 	;
-	;	Left:
 	;		--------------------------
     ; 		57	49	41	33	25	17	9	 \
 	;		1	58	50	42	34	26	18    \ Left 
@@ -45,13 +44,13 @@ macro Key_Expand
 	; 		19	11	3	60	52	44	36   /
 	;		--------------------------
 	;		63	55	47	39	31	23	15   \
-	;		7	62	54	46	38	30	22	  \ 
+	;		7	62	54	46	38	30	22	  \ Right
 	;		14	6	61	53	45	37	29    / 
 	;		21	13	5	28	20	12	4    / 
 	;		--------------------------
 	;
-	; This permutation is done using a permutation sequence, a super smart way of switching bits batween 2 integers. 
-	; The function is originlly created by Eric Young in C.
+	; This permutation is done using a permutation sequence, a smart way of switching bits batween 2 integers. 
+	; The function was originlly created by Eric Young in C.
 	; The 8086 assembly implementation has been written by Eyal Godovich.
 	; 
 	; Example for rotating 4x4 blocks of bits,
@@ -90,10 +89,9 @@ macro Key_Expand
 	Perm_Perform Left, Right, 1 , 55555555h
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	;	 Right side needs to be shifted and to get the last four bits of the left side!
+	;	 Right side needs to be shifted and to get the last four bits of the left side
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	; temp = (left << 8) | (right >>> 20)
-
 	mov edx, [Left]
 	mov [TempDW], edx
 	shl [TempDW], 8d
@@ -106,7 +104,6 @@ macro Key_Expand
 	;	 Left needs to be put upside down
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	; left = (right << 24) | (right << 8) | (right >>> 8) | (right >>> 24)
-
 	mov edx, [Right]
 	shl edx, 24d
 	mov [Left], edx
@@ -129,10 +126,10 @@ macro Key_Expand
 	;	 Now go through and perform these shifts on the left and right keys
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	
+	; Clear the bx register
 	xor bx, bx
 	
 	KeyIndex = 0
-	; The REPT method is way faster than the loop method
 	REPT 16
 		local @@DONE_SHIFTING, @@SHIFT_BY_ONE
 		
@@ -140,19 +137,21 @@ macro Key_Expand
 		push bx
 		
 		; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		;	 Shift the keys either one or two bits to the left
+		; Rotate the keys either one or two bits to the left
 		; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-		
-		; Shift by 1 or 2?
+		; For each of the 16 needed subkeys, perform a bit
+        ; rotation on each 28-bit keystuff half, then join
+        ; the halves together and permute to generate the
+
 		mov al, [ShiftsArray + bx] 
 		cmp al, 0
 		je @@SHIFT_BY_ONE
 		
-		; Default: Shift by two
+		; Default: Rotate by two
 		Rotate_Left Left, 2, 26
 		Rotate_Left Right,2, 26
 		
-		; Okay, now go to the next step
+		; Ok, now go to the next step
 		jmp @@DONE_SHIFTING
 		
 		; Shift by one
@@ -162,10 +161,9 @@ macro Key_Expand
 		Rotate_Left Right,1, 27
 		
 		@@DONE_SHIFTING:
-			and [Left], -0Fh
-			and [Right], -0Fh
+
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-			;	 Create left-temp
+			;	 Perform the PC2 Permutation
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			; lefttemp = pc2bytes0[(left >>> 28) & 0xf] | pc2bytes1[(left >>> 24) & 0xf]
             ;          | pc2bytes2[(left >>> 20) & 0xf] | pc2bytes3[(left >>> 16) & 0xf]
@@ -197,7 +195,7 @@ macro Key_Expand
 			endm
 
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-			;	 Create right-temp
+			;	 Perform the PC2 Permutation
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			; righttemp = pc2bytes7[(right >>> 28) & 0xf] | pc2bytes8[(right >>> 24) & 0xf]
             ;           | pc2bytes9[(right >>> 20) & 0xf] | pc2bytes10[(right >>> 16) & 0xf]
@@ -209,10 +207,13 @@ macro Key_Expand
 
 				mov ebx, [Right]
 				
+				; Shift right if the shift value isn't zero
 				IFE CURRENT_BY EQ 0
 					ZFShr ebx, CURRENT_BY
 				ENDIF
 
+				; Each element in the array is equal to 4 bytes
+				; So we need to multiply the index of our element by 4
 				and ebx, 0Fh
 				mov ax, 4d
 				mul bx
@@ -228,7 +229,6 @@ macro Key_Expand
 				CURRENT_BY = CURRENT_BY - 4
 			endm
 
-
 			; temp = ((righttemp >>> 16) ^ lefttemp) & 0x0000ffff; 
 			mov [TempDW], ecx
 			ZFShr [TempDW], 16
@@ -236,7 +236,7 @@ macro Key_Expand
 			and [TempDW], 0FFFFh
 			
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-			;	 Create keys!
+			;	 Add the keys to the keys array!
 			; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 			
 			; Add the first key to the subkeys array!

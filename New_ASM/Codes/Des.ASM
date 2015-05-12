@@ -26,13 +26,16 @@ DATASEG
 	
 	; Keys array
 	Keys 				dd 32 dup (?)
+
+	; Subkey Rotations.  Part of the subkey generation process
+    ; involves rotating certain bit-sections of the keystuff by either
+    ; one or two bits to the left.  This table specifies how many bits
+    ; to rotate left for each of the 16 steps.
 	ShiftsArray 		db 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0
 	
-	source db 64 dup (0)
-	permutation db 64 dup (0)
-
-	; Permuted Choice 2 ( PC -2 )
-	; http://en.wikipedia.org/wiki/DES_supplementary_material#Permuted_choice_2_.28PC-2.29
+	; PC2 Permutation.  The subkey generation process applies this
+    ; permutation to transform its running 56-bit keystuff value into
+    ; the final set of 16 48-bit subkeys.
 	PC2Bytes0  			dd 0h,4h,20000000h,20000004h,10000h,10004h,20010000h,20010004h,200h,204h,20000200h,20000204h,10200h,10204h,20010200h,20010204h
 	PC2Bytes1  			dd 0h,1h,100000h,100001h,4000000h,4000001h,4100000h,4100001h,100h,101h,100100h,100101h,4000100h,4000101h,4100100h,4100101h
 	PC2Bytes2  			dd 0h,8h,800h,808h,1000000h,1000008h,1000800h,1000808h,0h,8h,800h,808h,1000000h,1000008h,1000800h,1000808h
@@ -48,7 +51,58 @@ DATASEG
 	PC2Bytes12 			dd 0h,1000h,8000000h,8001000h,80000h,81000h,8080000h,8081000h,10h,1010h,8000010h,8001010h,80010h,81010h,8080010h,8081010h
 	PC2Bytes13 			dd 0h,4h,100h,104h,0h,4h,100h,104h,1h,5h,101h,105h,1h,5h,101h,105h
 
-	; Substitution box
+    ; Substitution Boxes.  A crucial step in the Feistel function is
+    ; to perform bit substitutions according to this table.  A 48-bit
+    ; value is split into 6-bit sections, and each section is permuted
+    ; into a different 6-bit value according to these eight tables.
+    ; (One table for each section.)
+    ; 
+    ;  According to Wikipedia:
+    ;  "The S-boxes provide the core of the security of DES - without
+    ;  them, the cipher would be linear, and trivially breakable."
+    ;
+    ; The original Substitution boxes
+    ; S1:
+    ;    14, 4,  13, 1,  2,  15, 11, 8,  3,  10, 6,  12, 5,  9,  0,  7,
+    ;    0,  15, 7,  4,  14, 2,  13, 1,  10, 6,  12, 11, 9,  5,  3,  8,
+    ;    4,  1,  14, 8,  13, 6,  2,  11, 15, 12, 9,  7,  3,  10, 5,  0,
+    ;    15, 12, 8,  2,  4,  9,  1,  7,  5,  11, 3,  14, 10, 0,  6,  13
+    ; S2:
+    ;    15, 1,  8,  14, 6,  11, 3,  4,  9,  7,  2,  13, 12, 0,  5,  10,
+    ;    3,  13, 4,  7,  15, 2,  8,  14, 12, 0,  1,  10, 6,  9,  11, 5,
+    ;    0,  14, 7,  11, 10, 4,  13, 1,  5,  8,  12, 6,  9,  3,  2,  15,
+    ;    13, 8,  10, 1,  3,  15, 4,  2,  11, 6,  7,  12, 0,  5,  14, 9
+    ; S3:
+    ;    10, 0,  9,  14, 6,  3,  15, 5,  1,  13, 12, 7,  11, 4,  2,  8,
+    ;    13, 7,  0,  9,  3,  4,  6,  10, 2,  8,  5,  14, 12, 11, 15, 1,
+    ;    13, 6,  4,  9,  8,  15, 3,  0,  11, 1,  2,  12, 5,  10, 14, 7,
+    ;    1,  10, 13, 0,  6,  9,  8,  7,  4,  15, 14, 3,  11, 5,  2,  12
+    ; S4:
+    ;    7,  13, 14, 3,  0,  6,  9,  10, 1,  2,  8,  5,  11, 12, 4,  15,
+    ;    13, 8,  11, 5,  6,  15, 0,  3,  4,  7,  2,  12, 1,  10, 14, 9,
+    ;    10, 6,  9,  0,  12, 11, 7,  13, 15, 1,  3,  14, 5,  2,  8,  4,
+    ;    3,  15, 0,  6,  10, 1,  13, 8,  9,  4,  5,  11, 12, 7,  2,  14
+    ; S5:
+    ;    2,  12, 4,  1,  7,  10, 11, 6,  8,  5,  3,  15, 13, 0,  14, 9,
+    ;    14, 11, 2,  12, 4,  7,  13, 1,  5,  0,  15, 10, 3,  9,  8,  6,
+    ;    4,  2,  1,  11, 10, 13, 7,  8,  15, 9,  12, 5,  6,  3,  0,  14,
+    ;    11, 8,  12, 7,  1,  14, 2,  13, 6,  15, 0,  9,  10, 4,  5,  3
+    ; S6:
+    ;    12, 1,  10, 15, 9,  2,  6,  8,  0,  13, 3,  4,  14, 7,  5,  11,
+    ;    10, 15, 4,  2,  7,  12, 9,  5,  6,  1,  13, 14, 0,  11, 3,  8,
+    ;    9,  14, 15, 5,  2,  8,  12, 3,  7,  0,  4,  10, 1,  13, 11, 6,
+    ;    4,  3,  2,  12, 9,  5,  15, 10, 11, 14, 1,  7,  6,  0,  8,  13
+    ; S7:
+    ;    4,  11, 2,  14, 15, 0,  8,  13, 3,  12, 9,  7,  5,  10, 6,  1,
+    ;    13, 0,  11, 7,  4,  9,  1,  10, 14, 3,  5,  12, 2,  15, 8,  6,
+    ;    1,  4,  11, 13, 12, 3,  7,  14, 10, 15, 6,  8,  0,  5,  9,  2,
+    ;    6,  11, 13, 8,  1,  4,  10, 7,  9,  5,  0,  15, 14, 2,  3,  12
+    ; S8:
+    ;    13, 2,  8,  4,  6,  15, 11, 1,  10, 9,  3,  14, 5,  0,  12, 7,
+    ;    1,  15, 13, 8,  10, 3,  7,  4,  12, 5,  6,  11, 0,  14, 9,  2,
+    ;    7,  11, 4,  1,  9,  12, 14, 2,  0,  6,  10, 13, 15, 3,  5,  8,
+    ;    2,  1,  14, 7,  4,  10, 8,  13, 15, 12, 9,  0,  3,  5,  6,  11
+
 	spfunction1 dd 16843776d ,0d ,65536d ,16843780d ,16842756d ,66564d ,4d ,65536d ,1024d ,16843776d ,16843780d ,1024d ,16778244d ,16842756d ,16777216d ,4d ,1028d ,16778240d ,16778240d ,66560d ,66560d ,16842752d ,16842752d ,16778244d ,65540d ,16777220d ,16777220d ,65540d ,0d ,1028d ,66564d ,16777216d ,65536d ,16843780d ,4d ,16842752d ,16843776d ,16777216d ,16777216d ,1024d ,16842756d ,65536d ,66560d ,16777220d ,1024d ,4d ,16778244d ,66564d ,16843780d ,65540d ,16842752d ,16778244d ,16777220d ,1028d ,66564d ,16843776d ,1028d ,16778240d ,16778240d ,0d ,65540d ,66560d ,0d ,16842756d
 	spfunction2 dd -7fef7fe0h ,-7fff8000h ,8000h ,108020h ,100000h ,20h ,-7fefffe0h ,-7fff7fe0h ,-7fffffe0h ,-7fef7fe0h ,-7fef8000h ,-80000000h ,-7fff8000h ,100000h ,20h ,-7fefffe0h ,108000h ,100020h ,-7fff7fe0h ,0h ,-80000000h ,8000h ,108020h ,-7ff00000h ,100020h ,-7fffffe0h ,0h ,108000h ,8020h ,-7fef8000h ,-7ff00000h ,8020h ,0h ,108020h ,-7fefffe0h ,100000h ,-7fff7fe0h ,-7ff00000h ,-7fef8000h ,8000h ,-7ff00000h ,-7fff8000h ,20h ,-7fef7fe0h ,108020h ,20h ,8000h ,-80000000h ,8020h ,-7fef8000h ,100000h ,-7fffffe0h ,100020h ,-7fff7fe0h ,-7fffffe0h ,100020h ,108000h ,0h ,-7fff8000h ,8020h ,-80000000h ,-7fefffe0h ,-7fef7fe0h ,108000h
 	spfunction3 dd 208h,8020200h,0h,8020008h,8000200h,0h,20208h,8000200h,20008h,8000008h,8000008h,20000h,8020208h,20008h,8020000h,208h,8000000h,8h,8020200h,200h,20200h,8020000h,8020008h,20208h,8000208h,20200h,20000h,8000208h,8h,8020208h,200h,8000000h,8020200h,8000000h,20008h,208h,20000h,8020200h,8000200h,0h,200h,20008h,8020208h,8000200h,8000008h,200h,0h,8020008h,8000208h,20000h,8000000h,8020208h,8h,20208h,20200h,8000008h,8020000h,8000208h,208h,8020000h,20208h,8h,8020008h,20200h
@@ -80,7 +134,7 @@ DATASEG
 
 	; Because we are creating a 16-bit code, our code segment have a mximum of 64k, and we pretty much used 37kb ( approximately ) already, so we have only 28kb free (2^16 - 37000 = 28536 bytes or 28.536 kb)
 	; Maximum Input file string size: 29kb
-	inputFileMaxSize	equ 28000
+	inputFileMaxSize	equ 5000
 	inputFileHandle 	dw ?
 	inputFileContent 	db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
 	inputFileContentDec db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
@@ -90,22 +144,13 @@ DATASEG
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 CODESEG
 	
-	; Include all of my macros and procedures from the library folder
+	; include all of our necessary files
 	include '..\Codes\Library\Base.asm'
-	include '..\Codes\Library\Console.asm'
-	include '..\Codes\Library\String.asm'
-	include '..\Codes\Library\Debug.asm'
-	include '..\Codes\Library\File.asm'
-	
-	; Include the program files ( the main code )
-	include '..\Codes\Perm.asm'
-	include '..\Codes\Key.asm'
-	include '..\Codes\Encrypt.asm'
-	
+	Base_Load <'..\Codes\Library\Console.asm', '..\Codes\Library\String.asm', '..\Codes\Library\Debug.asm', '..\Codes\Library\File.asm', '..\Codes\Perm.asm', '..\Codes\Key.asm', '..\Codes\Encrypt.asm'>
 start:
 	mov ax, @data
 	mov ds, ax
-	
+
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Instructions
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -353,11 +398,15 @@ start:
 	jmp @@SKIP_HEX_FORMATTING
 
 	@@ERROR_NOT_HEX:
+
 		Console_ClearScreen
-		Console_PrintHeader	
-		Console_WriteLine " Attention: The program can only accept hex string for decryption!"
-		Console_WriteLine
-		jmp @@OPTIONS
+		Console_PrintHeader
+		Console_PrintColoredString ' Phase one: Operating mode', 0ch
+		Console_NewLine
+		Console_PrintColoredString ' Warning  : The decryption method only accepts hex string!', 0Eh
+		Console_NewLine
+		Console_NewLine
+		jmp @@OPTIONS_MENU
 
 	@@SKIP_HEX_FORMATTING:
 	
@@ -461,7 +510,7 @@ start:
 			
 		@@encryption:
 
-			Console_Write '  - Hex    : '
+			Console_Write '  - Result : '
 
 			; Run the encryption
 			Encrypt_Run 1
@@ -470,7 +519,7 @@ start:
 		
 		@@decryption:
 
-			Console_Write '  - Text   : '
+			Console_Write '  - Result : '
 
 			; Run the decryption
 			Encrypt_Run 0		
@@ -478,6 +527,10 @@ start:
 			jmp @@finish
 			
 		@@finish:
+		Console_NewLine
+		Console_NewLine
+		Console_NewLine
+		Console_PrintColoredString '          # You can find your final result in the Output.txt file! #', 0Ah
 		
 exit:
 	Console_NewLine

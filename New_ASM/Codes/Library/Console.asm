@@ -158,55 +158,6 @@ macro Console_PrintNibble nibble
 endm
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-;	Name     : PrintNumDebug
-;	Usage    : Console_PrintNumDebug
-;	Desc     : Prints a number to the screen
-;	Source	 : Gvahim.asm
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-macro Console_PrintNumDebug number
-	local @@positive
-	
-	; Save bx
-    Base_PushRegisters <bx, ax>
-	
-    mov ax, number
-    Console_PrintNumberByBase ax, 16
-    
-	; Print "h ("
-    Console_PrintChar 'h'
-    Console_PrintChar ' '
-    Console_PrintChar '('
-
-	; Print the number
-    Console_PrintNumberByBase ax, 10
-
-	; Print ")"
-    Console_PrintChar ')'
-	
-	; Check if is a negative number
-	test ax, ax
-	jns @@positive
-	
-	; Print ' -'
-    Console_PrintChar ' '
-    Console_PrintChar '-'
-	
-	; Turn to positive (Two's complement)
-	neg ax
-	
-	; Print the number
-    Console_PrintNumberByBase ax, 10
-	
-	@@positive:
-		; Print new line
-		Console_NewLine
-		
-		; Restore the original value of ax & bx
-		Base_PopRegisters <ax, bx>
-endm
-
-; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;	Name     : ClearScreen
 ;	Usage    : Console_ClearScreen
 ;	Desc     : Clears the screen
@@ -253,6 +204,11 @@ macro Console_PrintHeader
 	Console_WriteLine
 endm
 
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : PrintColoredChar
+;	Usage    : Console_PrintColoredChar 'a', 0Ah
+;	Desc     : Prints the selected character in the selected color
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_PrintColoredChar char, color
 	Base_PushRegisters<ax, bx, cx, dx>
 
@@ -264,10 +220,14 @@ macro Console_PrintColoredChar char, color
 	int 10h
 
 	Console_CursorBack inc
-
 	Base_PopRegisters <dx, cx, bx, ax>
 endm
 
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : PrintColoredString
+;	Usage    : Console_PrintColoredString 'abc', 0Ah
+;	Desc     : Prints the string in color
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_PrintColoredString string, color
 	local @@START,@@MSG, @@CHAR_LOOP, @@EXIT ; Declare the local variable and the local label because we don't want any duplicates.
 
@@ -304,6 +264,11 @@ macro Console_PrintColoredString string, color
 	Base_PopRegisters <ds, dx, ax>
 endm
 
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : Console_CursorBack
+;	Usage    : Console_CursorBack inc | Console_CursorBack dec
+;	Desc     : Move's the cursor back a step
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_CursorBack mod
 	Base_PushRegisters <ax, bx, dx>
 	mov ah, 3
