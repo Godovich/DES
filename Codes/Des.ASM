@@ -145,7 +145,7 @@ CODESEG
 	
 	; include all of our necessary files
 	include '..\Codes\Library\Base.asm'
-	Base_Load <'..\Codes\Library\Console.asm', '..\Codes\Library\String.asm', '..\Codes\Library\Debug.asm', '..\Codes\Library\File.asm', '..\Codes\Perm.asm', '..\Codes\Key.asm', '..\Codes\Encrypt.asm'>
+	Base_Load <'..\Codes\Library\Console.asm', '..\Codes\Library\String.asm', '..\Codes\Library\File.asm', '..\Codes\Perm.asm', '..\Codes\Key.asm', '..\Codes\Encrypt.asm'>
 start:
 	mov ax, @data
 	mov ds, ax
