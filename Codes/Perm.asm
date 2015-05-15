@@ -8,8 +8,8 @@
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;	Name     : Perform
-;	Usage    : Base_PushRegisters <ax, bx, cx, dx>
-;	Desc     : Pushes the registers to the stack 
+;	Usage    : Perm_Perform Left, Right, 4 , 0f0f0f0fh
+;	Desc     : Rotate's blocks of bits 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 macro Perm_Perform One, Two, By, AndWith
@@ -43,7 +43,12 @@ macro Perm_Perform One, Two, By, AndWith
     pop edx 
 endm
 
-; Swap XOR Algorithm
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : Swap
+;	Usage    : Swap Left, Right
+;	Desc     : Swap's two values
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 macro Swap src, dst
 	push edx
 	mov edx, [dst]
@@ -54,8 +59,12 @@ macro Swap src, dst
 	pop edx
 endm
 
-; Zero filled shift right
-; >>> Operator in js
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : ZFShr
+;	Usage    : ZFShr [Left], 14
+;	Desc     : Zero-filled shift right
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 macro ZFShr dst, by
 
 	push esi
@@ -72,7 +81,13 @@ macro ZFShr dst, by
 
 endm
 
-; Credit: http://www.geeksforgeeks.org/rotate-bits-of-an-integer/
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : Rotate_Left
+;	Usage    : Rotate_Left Left, 2, 27
+;	Desc     : Rotates a sequence of bits x times to the left
+; 	Credit   : http://www.geeksforgeeks.org/rotate-bits-of-an-integer/
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 macro Rotate_Left src, by, t
 	Base_PushRegisters <edx>
 

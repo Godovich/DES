@@ -6,5 +6,7 @@ TLINK.exe /v %1
 cls
 %1
 cycles = auto
+del *.map
+del *.obj
 echo.
 echo.

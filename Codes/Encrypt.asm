@@ -9,19 +9,14 @@
 macro Encrypt_Run MODE
 	local @@ForLoop, @@whileLoop, @@Reg, @@Next
 
-
 	; If the mode is encryption
 	IF Mode eq 1
-
-		; Encryption content
 		lea si, [inputFileContent]
-
 	ELSE 
-
-		; Fix the block problem, we need an input of atleast 8 characters.
-		sub [inputFileSize], 16
 		lea si, [inputFileContentDec]
 	ENDIF
+
+	mov [outputc], 0
 
 	@@whileLoop:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -89,7 +84,7 @@ macro Encrypt_Run MODE
 	;------------------------------------------------------------
 	; Now go through and perform the encryption or decryption  
 	;------------------------------------------------------------
-	
+
 	Index = 0
 	REPT 16
 
@@ -278,7 +273,7 @@ macro Encrypt_Run MODE
 
 			; Add the character
 			mov bx, [outputc]
-			mov [byte ptr output + bx], al
+			mov [output + bx], al
 			inc [outputc]
 
 		ENDIF
@@ -304,12 +299,6 @@ macro Encrypt_Run MODE
 	
 	; Open the file and save the handle 
 	File_Open '..\Output.txt', 2, inputFileHandle
-	
-	; If the mode is decryption, adjust the output text size
-	IF Mode eq 0
-		add [outputc], 8 ; \ Add 8
-		shr [outputc], 1 ; / Divide by 2
-	ENDIF
 
 	; End the string with ascii zero
 	mov bx, [outputc]
@@ -319,9 +308,12 @@ macro Encrypt_Run MODE
 	lea si, [output]
 	String_PrintUpTo 62
 
+	; Get the real string length
+	String_TrimNonsense output	
+	mov cx, bx
+
 	; Write the output to Output.txt
 	mov ah, 40h
-	mov cx, [outputc]
 	mov bx, [inputFileHandle]
 	lea dx, [output]
 	int 21h

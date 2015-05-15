@@ -154,8 +154,6 @@ macro File_Create name, handle
 		; Carry flag is set on error
 		jc @@error
 
-
-
 		mov [cs:handle], ax
 		File_Close cs:handle
 		
@@ -231,7 +229,7 @@ macro File_Size handle, dst
 	local @@exit, @@error
 	
 	; Save the current value of ax, dx and cx
-	Base_PushRegisters <ax, bx, cx, dx>
+	Base_PushRegisters <ax, bx, cx>
 	
 	; ah = 42h means move file pointer
 	mov ah, 42h     
@@ -262,7 +260,7 @@ macro File_Size handle, dst
 	@@exit:
 	
 	; Pop the registers back
-	Base_PopRegisters <dx, cx, bx>
+	Base_PopRegisters <cx, bx>
 	; Set dst to file size
 	mov dst, ax
 	pop ax

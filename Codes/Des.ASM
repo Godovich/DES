@@ -127,18 +127,17 @@ DATASEG
 	Key1 				dd 0h
 	Key2 				dd 0h
 	m 					dw 0
+	time                db 0 
 
-
-	output db 4096 dup (20h)
+	; Maximum data-segment size: 64kb
+	output db 15000d dup (0)
 	outputc dw 0
+	inputFileMaxSize	equ 7500d
+	inputFileHandle 	dw 0
+	inputFileContent 	db inputFileMaxSize dup (0) ; Fill up the empty spaces with spaces
+	inputFileContentDec db inputFileMaxSize dup (0) ; Fill up the empty spaces with spaces
+	inputFileSize		dw 0
 
-	; Because we are creating a 16-bit code, our code segment have a mximum of 64k, and we pretty much used 37kb ( approximately ) already, so we have only 28kb free (2^16 - 37000 = 28536 bytes or 28.536 kb)
-	; Maximum Input file string size: 29kb
-	inputFileMaxSize	equ 5000
-	inputFileHandle 	dw ?
-	inputFileContent 	db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
-	inputFileContentDec db inputFileMaxSize dup (20h) ; Fill up the empty spaces with spaces
-	inputFileSize		dw ?
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ; *********************           Code Segment           ********************
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -265,8 +264,6 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Receive Encryption/Decryption selection input
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
 	; Well, I really need the user to choose between encryption and decryption.
 	; I know it's a hard choice, but please!
 	; So.. let's try again!
@@ -292,17 +289,20 @@ start:
 
 	@@FILE_STILL_EXISTS:
 
+	; BX = File size in bits
+	mov [inputFileHandle], 0
+	mov [inputFileSize], 0
+	mov bx, 0
+
 	File_Open '..\Input.txt', 2, inputFileHandle
-	File_Size inputFileHandle, bx					; Get size of the file and put it in bx
+	File_Size inputFileHandle, bx
 
 	; Move the size to the inputFileSize variable
 	mov [inputFileSize], bx
 
 	; Check to see if the file size is bigger than zero
 	cmp [inputFileSize], 0
-	JNE @@CHECK_MAXIMUM
-
-	File_Close inputFileHandle
+	jg @@CHECK_MAXIMUM
 
 	Console_ClearScreen
 	Console_PrintHeader
@@ -311,24 +311,22 @@ start:
 	Console_PrintColoredString ' Warning  : ''Input.txt'' is empty!', 0Eh
 	Console_NewLine
 	Console_NewLine
+	File_Close inputFileHandle
 
 	; Loop over and over again until the user enters the text into input.txt
 	jmp @@OPTIONS_MENU
 
 	@@CHECK_MAXIMUM:
-	
-	; Ok, so now we have the file size stored in bx, we need to check that the
-	; file size is smaller than the maximum size we selected.
-	cmp bx, inputFileMaxSize						; Compare with the maximum defined.
-	jb @@READ_INPUT								    ; If smaller, skip the error message.
-	
-	; This file size is bigger than the maximum.
+	cmp [inputFileSize], 7500d
+	jle @@READ_INPUT
+
 	Console_ClearScreen
 	Console_PrintHeader
-	Console_WriteLine ' Attention: Input.txt is too big!'
-	Console_WriteLine '            Maximum size: 29kb'
-	Console_WriteLine
-	File_Close inputFileHandle						; Now we can close the file.
+	Console_PrintColoredString ' Phase one: Operating mode', 0ch
+	Console_NewLine
+	Console_PrintColoredString ' Error  : The file is too big! (Max: 7500 characters)', 0Eh
+	Console_Write <10, 13, 10, 13>
+	jmp @@OPTIONS_MENU
 
 	; Great! continue...
 	@@READ_INPUT:

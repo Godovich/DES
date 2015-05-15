@@ -228,6 +228,38 @@ macro String_AddHexToResult char
 	
 	add char, '0'
 	mov bx, [outputc]
-	mov [byte ptr output + bx], char
+	mov [output + bx], char
 	inc [outputc]
+endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : TrimNonsense
+;	Usage    : String_TrimNonsense output
+;	Desc     : Return's the true length of the string
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_TrimNonsense string
+	local @@CHAR_LOOP, @@EXIT, @@REMOVE
+	
+	; Save the current value of ax & si
+	Base_PushRegisters <ax, si>
+	
+	lea si, [string]
+	mov bx, 0
+
+	@@CHAR_LOOP:
+		lodsb 	  			 ; Load byte from the string in SI
+		or al, al 			 ; Update the zero-flag
+		jz   @@EXIT 		 ; The string ends in a zero, so, if found, exit
+
+		cmp al, 0E6h
+		je @@EXIT
+
+		inc bx
+		jmp @@CHAR_LOOP
+
+
+	@@EXIT:
+		; Restore the original value of ax & si
+		Base_PopRegisters <si, ax>
 endm
