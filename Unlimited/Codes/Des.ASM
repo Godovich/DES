@@ -194,6 +194,10 @@ start:
 	Console_PrintColoredString ' (E) Exit                                                       ', 0Ch
 	Console_PrintColoredString '   (C) Continue', 0Ch
 
+	File_CheckIfInputExists @@CONTINUE_INPUT_EXISTS
+
+	@@CONTINUE_INPUT_EXISTS:
+
 	; Read letter from keyboard
 	xor ax, ax
 	int 16h
