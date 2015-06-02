@@ -263,3 +263,58 @@ macro String_TrimNonsense string
 		; Restore the original value of ax & si
 		Base_PopRegisters <si, ax>
 endm
+
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+;	Name     : JmpNotHex
+;	Usage    : String_JmpNotHex @@LABEL_ERRROR
+;	Desc     : Translates the hex and jumps to a specified label incase of error
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+macro String_JmpNotHex label
+	local @@CHAR_LOOP
+
+	Base_PushRegisters <ax, bx, cx, dx, si>
+
+	; Clear the counter variable
+	xor cx, cx
+
+	; Load the string to the memory
+	lea si, [inputFileContent]
+	
+	@@CHAR_LOOP:
+		lodsb 	  			 ; Load byte from the string in SI
+		mov ah, al           ; Move the byte to ah
+		lodsb				 ; Load byte from the string in SI
+		
+		; Check if the first character is a hex character
+		String_IsHex al
+		cmp dx, 1
+		JNE label
+
+		; Check if the second character is a hex character
+		String_IsHex ah
+		cmp dx, 1
+		JNE label
+
+		; Get the acsii value of both characters
+		String_CharToASCII al
+		String_CharToASCII ah
+
+		; Set the first character as the higher-nibble
+		shl ah, 4
+		add ah, al
+
+		; Set the next character in the string
+		mov bx, cx
+		shr bx, 1 ; Divide by two
+		mov [inputFileContentDec + bx], ah
+
+		; We used 2 bytes, so let's add them to our count
+		add cx, 2
+
+		; if( BytesChecked < BytesTotal )
+		cmp cx, [inputFileSize]
+		jne  @@CHAR_LOOP	 ; And now to the next character
+
+	Base_PopRegisters <si, dx, cx, bx, ax>
+endm

@@ -7,7 +7,7 @@
 ; =============================================================================
 
 macro Encrypt_Run MODE
-	local @@ForLoop, @@whileLoop, @@Reg, @@Next
+	local @@ForLoop, @@whileLoop, @@Reg, @@Next, @@SKIP_LESS, @@SKIP_PRINT
 
 	; If the mode is encryption
 	IF Mode eq 1
@@ -293,12 +293,7 @@ macro Encrypt_Run MODE
 	cmp ax, [inputFileSize]
 	JLE @@whileLoop
 
-	; Create the output.txt file if necessary
-	File_Create '..\Output.txt', inputFileHandle
-	File_Close inputFileHandle
-	
-	; Open the file and save the handle 
-	File_Open '..\Output.txt', 2, inputFileHandle
+	OpenOutput
 
 	; End the string with ascii zero
 	mov bx, [outputc]
@@ -306,16 +301,56 @@ macro Encrypt_Run MODE
 
 	; Print up to 62 characters from the string
 	lea si, [output]
-	String_PrintUpTo 62
 
-	; Get the real string length
-	String_TrimNonsense output	
-	mov cx, bx
+	; Set Write Size
+	IF Mode eq 1
+		; encryption
+		mov cx, 16d
+	ELSE
+		; decryption
+		mov cx, 8d
+	ENDIF
 
-	; Write the output to Output.txt
+	; Write to file
 	mov ah, 40h
-	mov bx, [inputFileHandle]
+	mov bx, [outputFileHandle]
 	lea dx, [output]
 	int 21h
 
+	; Reset everything!
+	mov [RightTemp],0
+	mov [LeftTemp], 0
+	mov [KeyNum], 0
+	MOV [TempDW], 0
+	MOV [Left], 0
+	MOV [Right], 0
+	mov [i], 0
+	mov [Left1], 0
+	mov [Right1], 0
+	mov [Right2], 0
+	mov [Left2], 0
+	mov [Key1], 0
+	mov [Key2], 0
+	mov [m], 0
+	mov [time], 0
+	mov [outputc], 0
+
+	Index = 0
+	REPT 32d
+		mov [output + Index], 0
+		Index = Index + 1
+	ENDM
+
+endm
+
+macro OpenOutput
+	local @@SKIP_OPENING
+
+	cmp [outputFileHandle], 0
+	jne @@SKIP_OPENING
+
+	; Open the file and save the handle 
+	File_Open '..\Output.txt', 2, outputFileHandle
+
+	@@SKIP_OPENING:
 endm

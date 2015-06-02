@@ -176,12 +176,12 @@ endm
 macro Console_PrintHeader
 	local @@skip, @@encryption, @@decryption
 	
-	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ch
 	
 	; I have no clue why, but it fixed the problem of the double new line
 	Console_Write ' '
 	
-	Console_PrintColoredString '  DES Cipher System by Eyal Godovich', 0Ah
+	Console_PrintColoredString '  DES Cipher System by Eyal Godovich', 0Ch
 	
 	cmp [encryption], '1'
 	je @@encryption
@@ -192,21 +192,21 @@ macro Console_PrintHeader
 	jmp @@skip
 	
 	@@decryption:
-	Console_PrintColoredString '                           Mode: Decryption', 0Ah
+	Console_PrintColoredString '                           Mode: Decryption', 0Ch
 	jmp @@skip
 	
 	@@encryption:
-	Console_PrintColoredString '                           Mode: Encryption',0Ah
+	Console_PrintColoredString '                           Mode: Encryption',0Ch
 	
 	@@skip:
 	Console_NewLine
-	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ch
 	Console_WriteLine
 endm
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;	Name     : PrintColoredChar
-;	Usage    : Console_PrintColoredChar 'a', 0Ah
+;	Usage    : Console_PrintColoredChar 'a', 0Ch
 ;	Desc     : Prints the selected character in the selected color
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_PrintColoredChar char, color
@@ -225,7 +225,7 @@ endm
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ;	Name     : PrintColoredString
-;	Usage    : Console_PrintColoredString 'abc', 0Ah
+;	Usage    : Console_PrintColoredString 'abc', 0Ch
 ;	Desc     : Prints the string in color
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 macro Console_PrintColoredString string, color

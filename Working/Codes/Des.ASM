@@ -130,13 +130,15 @@ DATASEG
 	time                db 0 
 
 	; Maximum data-segment size: 64kb
-	output db 15000d dup (0)
+	output db 10000d dup (0)
 	outputc dw 0
-	inputFileMaxSize	equ 7500d
+	inputFileMaxSize	equ 5000d
 	inputFileHandle 	dw 0
 	inputFileContent 	db inputFileMaxSize dup (0) ; Fill up the empty spaces with spaces
 	inputFileContentDec db inputFileMaxSize dup (0) ; Fill up the empty spaces with spaces
 	inputFileSize		dw 0
+	outputFileHandle    dw 0
+	iteration_time      dd 0
 
 ; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ; *********************           Code Segment           ********************
@@ -145,7 +147,7 @@ CODESEG
 	
 	; include all of our necessary files
 	include '..\Codes\Library\Base.asm'
-	Base_Load <'..\Codes\Library\Console.asm', '..\Codes\Library\String.asm', '..\Codes\Library\File.asm', '..\Codes\Perm.asm', '..\Codes\Key.asm', '..\Codes\Encrypt.asm'>
+	Base_Load <'..\Codes\Library\Console.asm', '..\Codes\Library\String.asm', '..\Codes\Library\Debug.asm', '..\Codes\Library\File.asm', '..\Codes\Perm.asm', '..\Codes\Key.asm', '..\Codes\Encrypt.asm'>
 start:
 	mov ax, @data
 	mov ds, ax
@@ -159,7 +161,7 @@ start:
 
 	; Now print the instructions
 	@@INSTRUCTIONS:
-	Console_PrintColoredString ' Instructions :', 0Ah
+	Console_PrintColoredString ' Instructions :', 0Ch
 	Console_NewLine
 
 	Console_NewLine
@@ -187,8 +189,8 @@ start:
 
 	Console_NewLine
 
-	Console_PrintColoredString ' (E) Exit                                                       ', 0Ah
-	Console_PrintColoredString '   (C) Continue', 0Ah
+	Console_PrintColoredString ' (E) Exit                                                       ', 0Ch
+	Console_PrintColoredString '   (C) Continue', 0Ch
 
 	; Read letter from keyboard
 	xor ax, ax
@@ -240,8 +242,8 @@ start:
 		Console_NewLine
 	ENDM
 
-	Console_PrintColoredString ' (E) Exit                                                       ', 0Ah
-	Console_PrintColoredString ' (1|2) Continue', 0Ah
+	Console_PrintColoredString ' (E) Exit                                                       ', 0Ch
+	Console_PrintColoredString ' (1|2) Continue', 0Ch
 	
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Receive Encryption/Decryption selection input
@@ -302,8 +304,8 @@ start:
 
 	; Check to see if the file size is bigger than zero
 	cmp [inputFileSize], 0
-	jg @@CHECK_MAXIMUM
-
+	ja @@CHECK_MAXIMUM
+	
 	Console_ClearScreen
 	Console_PrintHeader
 	Console_PrintColoredString ' Phase one: Operating mode', 0ch
@@ -317,14 +319,14 @@ start:
 	jmp @@OPTIONS_MENU
 
 	@@CHECK_MAXIMUM:
-	cmp [inputFileSize], 7500d
-	jle @@READ_INPUT
+	cmp [inputFileSize], 65530d
+	jb @@READ_INPUT
 
 	Console_ClearScreen
 	Console_PrintHeader
 	Console_PrintColoredString ' Phase one: Operating mode', 0ch
 	Console_NewLine
-	Console_PrintColoredString ' Error  : The file is too big! (Max: 7500 characters)', 0Eh
+	Console_PrintColoredString ' Error  : The file is too big! (Max: 65KB)', 0Eh
 	Console_Write <10, 13, 10, 13>
 	jmp @@OPTIONS_MENU
 
@@ -334,7 +336,7 @@ start:
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	;	Read Input.txt content!
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	File_Read_All inputFileHandle, inputFileContent	; Read everything!
+	;File_Read_All inputFileHandle, inputFileContent	; Read everything!
 	File_Close inputFileHandle						; Now we can close the file.
 
 	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -345,54 +347,13 @@ start:
 	cmp [encryption], '2'
 	jne @@SKIP_HEX_FORMATTING
 
+	; Check if the number of characters is even
 	mov ax, [inputFileSize]
-	or ax, 1
+	and ax, 1
 	cmp ax, 1
 	je @@ERROR_NOT_HEX
 
-	; Clear the counter variable
-	xor cx, cx
-
-	; Load the string to the memory
-	lea si, [inputFileContent]
-	
-	@@CHAR_LOOP:
-		lodsb 	  			 ; Load byte from the string in SI
-		mov ah, al           ; Move the byte to ah
-		lodsb				 ; Load byte from the string in SI
-		
-		; Check if the characters are both hex characters
-
-		; Check if the first character is an actual hex character
-		String_IsHex al
-		cmp dx, 1
-		JNE @@ERROR_NOT_HEX
-
-		; Check if the second character is an actual hex character
-		String_IsHex ah
-		cmp dx, 1
-		JNE @@ERROR_NOT_HEX
-
-		; Get the acsii value of both characters
-		String_CharToASCII al
-		String_CharToASCII ah
-
-		; Set the first character as the higher-nibble
-		shl ah, 4
-		add ah, al
-
-		; Set the next character in the string
-		mov bx, cx
-		shr bx, 1 ; Divide by two
-		mov [inputFileContentDec + bx], ah
-
-		; We used 2 bytes, so let's add them to our count
-		add cx, 2
-
-		; if( BytesChecked < BytesTotal )
-		cmp cx, [inputFileSize]
-		jne  @@CHAR_LOOP	 ; And now to the next character
-
+	;String_JmpNotHex @@ERROR_NOT_HEX
 	jmp @@SKIP_HEX_FORMATTING
 
 	@@ERROR_NOT_HEX:
@@ -433,7 +394,7 @@ start:
 
 	@@SKIP_MODE:
 	Console_WriteLine
-	Console_PrintColoredString ' Please enter your 64-bit key (8 characters) : ', 0Ah
+	Console_PrintColoredString ' Please enter your 64-bit key (8 characters) : ', 0Ch
 
 	String_Scan key, 8 ; Get the key string from the user
 	
@@ -510,30 +471,84 @@ start:
 
 			Console_Write '  - Result : '
 
+			File_Open '..\Input.txt', 2, inputFileHandle
+			
+			mov cx, 0
+
+			; Create the output.txt file if necessary
+			File_Create '..\Output.txt', outputFileHandle
+			File_Close outputFileHandle
+			mov [outputFileHandle], 0
+			mov bx, [inputFileSize]
+			mov [inputFileSize], 32
+
 			; Run the encryption
-			Encrypt_Run 1
-	
+			@@LOOP_FILE:
+			 	push bx
+
+				File_Read inputFileHandle, 32, inputFileContent
+
+				push cx
+				Encrypt_Run 1
+			 	pop cx
+
+			add cx, 32
+			pop bx
+			cmp cx, bx
+			jb @@LOOP_FILE
+
+
 			jmp @@finish
 		
 		@@decryption:
 
 			Console_Write '  - Result : '
+			mov bx, [inputFileSize]
+			Debug_Register_16 bx
 
-			; Run the decryption
-			Encrypt_Run 0		
-			
+			File_Open '..\Input.txt', 2, inputFileHandle
+
+			; Create the output.txt file if necessary
+			File_Create '..\Output.txt', outputFileHandle
+			File_Close outputFileHandle
+			mov [outputFileHandle], 0
+			mov bx, [inputFileSize]
+			mov [inputFileSize], 16
+
+			; Reset the counter
+			xor cx, cx
+
+			; Run the encryption
+			@@LOOP_FILE_DECRYPTION:
+			 	push bx
+
+				File_Read inputFileHandle, 16, inputFileContent
+				String_JmpNotHex @@ERROR_INVALID
+				
+				push cx
+				Encrypt_Run 0
+			 	pop cx
+
+			add cx, 16
+			pop bx
+			cmp cx, bx
+			jb @@LOOP_FILE_DECRYPTION
+
 			jmp @@finish
+
+			@@ERROR_INVALID:
+			Console_WriteLine ' Invalid hex string! '
 			
 		@@finish:
 		Console_NewLine
 		Console_NewLine
 		Console_NewLine
-		Console_PrintColoredString '          # You can find your final result in the Output.txt file! #', 0Ah
+		Console_PrintColoredString '          # You can find your final result in the Output.txt file! #', 0Ch
 		
 exit:
 	Console_NewLine
 
-	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ah
+	Console_PrintColoredString ' ------------------------------------------------------------------------------', 0Ch
 	Console_NewLine
 	
 	mov ax, 4c00h
